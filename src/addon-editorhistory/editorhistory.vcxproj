@@ -86,9 +86,9 @@
       <Message>開発環境からメタ情報を取得し、バージョン情報 version.h を作成します。</Message>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>"robocopy.exe" "$(ProjectDir)..\..\bin\addon-editorhistory\$(Configuration)\$(Platform)" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration)" "*.addon" "*.addon32" "*.addon64" "*.pdb" /COPY:XDT
+      <Command>"robocopy.exe" "$(ProjectDir)..\..\bin\addon-editorhistory\$(Configuration)\$(Platform)" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration)" "*.addon" "*.addon32" "*.addon64" "*.pdb" /COPY:DT
 IF %ERRORLEVEL% LSS 8 cd &gt;nul
-"robocopy.exe" "$(ProjectDir)..\..\bin\addon-editorhistory\$(Configuration)\$(Platform)" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App" "*.addon" "*.addon32" "*.addon64" "*.pdb" /COPY:XDT
+"robocopy.exe" "$(ProjectDir)..\..\bin\addon-editorhistory\$(Configuration)\$(Platform)" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App" "*.addon" "*.addon32" "*.addon64" "*.pdb" /COPY:DT
 IF %ERRORLEVEL% LSS 8 cd &gt;nul
 </Command>
       <Message>ビルドしたアドオン ファイルをReShadeの出力フォルダに配置します。</Message>
