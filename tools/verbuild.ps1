@@ -34,8 +34,6 @@ if ( $( git describe --long --tags ) -notmatch 'v(.+)-(\d+)-g(.+)' )
     Write-Error git` error` `(git` describe`)
 }
 
-$branch = git rev-parse --abbrev-ref HEAD
-
 $versionTag = $matches[1]
 $version = $versionTag.Split('-')
 $versionExtra = $version[1] ? ('-' + $version[1]) : ''
@@ -47,8 +45,6 @@ $sha1 = $matches[3]
 
 $developing = $( git status --short ) | Where-Object { $_ -notlike '`?`?*' -and $_ -notlike '!!*' } | Where-Object { $_ -notlike "`?`? deps/reshade" }
 $developingStr = $developing ? ' UNCOMMITED' : ''
-
-$versionText = '{0}.{1}.{2}{3}{4}' -f $version.Major, $version.Minor, $version.Build, $tagRangeStr, $developingStr
 
 # --------------------------------------
 # メタ データをファイルに出力する
@@ -63,8 +59,8 @@ $content = @"
 
 #define ADDON_FULL $($version.Major).$($version.Minor).$($version.Build).$($version.Revision)
 
-#define ADDON_STRING_FILE "$($version.Major).$($version.Minor).$($version.Build).$($version.Revision)"
-#define ADDON_STRING_PRODUCT "$versionText"
+#define ADDON_STRING_FILE "$( git describe --long --tags )"
+#define ADDON_STRING_PRODUCT "$( git describe --long --tags )/$( git rev-parse --abbrev-ref HEAD )"
 
 "@
 
