@@ -59,8 +59,8 @@ $content = @"
 
 #define ADDON_FULL $($version.Major).$($version.Minor).$($version.Build).$($version.Revision)
 
-#define ADDON_STRING_FILE "$( git describe --long --tags )"
-#define ADDON_STRING_PRODUCT "$( git describe --long --tags )/$( git rev-parse --abbrev-ref HEAD )"
+#define ADDON_STRING_FILE "$( git describe --long --tags )$developingStr"
+#define ADDON_STRING_PRODUCT "$( git describe --long --tags )/$( git rev-parse --abbrev-ref HEAD )$developingStr"
 
 "@
 

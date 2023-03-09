@@ -419,6 +419,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
             reshade::register_overlay("History", draw_history_window);
             break;
         case DLL_PROCESS_DETACH:
+            reshade::unregister_overlay("History", draw_history_window);
             reshade::unregister_addon(hModule);
             break;
     }

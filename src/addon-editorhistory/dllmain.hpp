@@ -7,6 +7,6 @@
 #include <imgui.h>
 #include <reshade.hpp>
 
-#if !defined(_DEBUG) && ADDON_MAJOR != RESHADE_API_VERSION
+#if !defined(_DEBUG) && ADDON_MAJOR < RESHADE_API_VERSION
 #error メジャー バージョンはAPI改訂番号と同一である必要があります。
 #endif

@@ -21,8 +21,8 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Globals">
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{9513A1A1-E1F9-4E48-A2EC-757C69DCD2EE}</ProjectGuid>
-    <ProjectName>addon-editorhistory</ProjectName>
+    <ProjectGuid>{C41F5614-4AC3-44F9-A00E-CF2F5F5A889B}</ProjectGuid>
+    <ProjectName>addon-screenshot</ProjectName>
     <VCProjectVersion>15.0</VCProjectVersion>
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformVersion Condition="'$(VisualStudioVersion)'&gt;='16.0'">10.0</WindowsTargetPlatformVersion>
@@ -46,11 +46,11 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Platform)'=='Win32'">
-    <TargetName>ReShade32-EditorHistory-By-seri14</TargetName>
+    <TargetName>ReShade32-Screenshot-By-seri14</TargetName>
     <TargetExt>.addon32</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='x64'">
-    <TargetName>ReShade64-EditorHistory-By-seri14</TargetName>
+    <TargetName>ReShade64-Screenshot-By-seri14</TargetName>
     <TargetExt>.addon64</TargetExt>
   </PropertyGroup>
   <PropertyGroup>
@@ -69,6 +69,7 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;ImTextureID=ImU64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
       <WarningLevel>Level4</WarningLevel>
     </ClCompile>
     <Link>
@@ -89,9 +90,10 @@
     <ClCompile>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
+      <AdditionalDependencies>zlibd.lib;libpng16d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
@@ -105,6 +107,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
+      <AdditionalDependencies>zlib.lib;libpng16.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
@@ -114,11 +117,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="dllmain.hpp" />
+    <ClInclude Include="imgui_widgets.hpp" />
+    <ClInclude Include="input.hpp" />
     <ClInclude Include="res\resource.h" />
     <ClInclude Include="res\version.h" />
+    <ClInclude Include="runtime_config.hpp" />
+    <ClInclude Include="screenshot.hpp" />
+    <ClInclude Include="std_string_ext.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="imgui_widgets.cpp" />
+    <ClCompile Include="input.cpp" />
+    <ClCompile Include="runtime_config.cpp" />
+    <ClCompile Include="screenshot.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="res\resource.rc" />
