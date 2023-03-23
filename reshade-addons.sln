@@ -21,6 +21,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "addon-editorhistory", "src\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "addon-screenshot", "src\addon-screenshot\screenshot.vcxproj", "{C41F5614-4AC3-44F9-A00E-CF2F5F5A889B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "addon-uibind", "src\addon-uibind\uibind.vcxproj", "{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|32-bit = Debug|32-bit
@@ -45,6 +47,14 @@ Global
 		{C41F5614-4AC3-44F9-A00E-CF2F5F5A889B}.Release|32-bit.Build.0 = Release|Win32
 		{C41F5614-4AC3-44F9-A00E-CF2F5F5A889B}.Release|64-bit.ActiveCfg = Release|x64
 		{C41F5614-4AC3-44F9-A00E-CF2F5F5A889B}.Release|64-bit.Build.0 = Release|x64
+		{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}.Debug|32-bit.ActiveCfg = Debug|Win32
+		{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}.Debug|32-bit.Build.0 = Debug|Win32
+		{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}.Debug|64-bit.ActiveCfg = Debug|x64
+		{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}.Debug|64-bit.Build.0 = Debug|x64
+		{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}.Release|32-bit.ActiveCfg = Release|Win32
+		{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}.Release|32-bit.Build.0 = Release|Win32
+		{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}.Release|64-bit.ActiveCfg = Release|x64
+		{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}.Release|64-bit.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

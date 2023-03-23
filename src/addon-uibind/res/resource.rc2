@@ -1,0 +1,42 @@
+#include "version.h"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION ADDON_MAJOR,ADDON_MINOR,ADDON_BUILD,ADDON_REVISION
+ PRODUCTVERSION ADDON_MAJOR,ADDON_MINOR,ADDON_BUILD,ADDON_REVISION
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+ FILEFLAGS (VS_FF_PRERELEASE | VS_FF_DEBUG)
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_DLL
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040004b0"
+        BEGIN
+            VALUE "CompanyName", "seri14"
+            VALUE "FileVersion", ADDON_STRING_FILE
+            VALUE "ProductName", "UIBind"
+            VALUE "ProductVersion", ADDON_STRING_PRODUCT
+            VALUE "LegalCopyright", "2018 seri14"
+            VALUE "FileDescription", "Add support ui_bind annotation"
+#if defined _WIN64
+            VALUE "OriginalFilename", "ReShade64-UIBind-By-seri14.addon64"
+#elif defined _WIN32
+            VALUE "OriginalFilename", "ReShade32-UIBind-By-seri14.addon32"
+#endif
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x400, 0x4b0
+    END
+END

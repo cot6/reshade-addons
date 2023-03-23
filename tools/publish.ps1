@@ -44,6 +44,7 @@ $compressionFiles = [System.Collections.ArrayList]::new()
 $compressionFiles.AddRange($('*.md' | Get-Item))
 $compressionFiles.AddRange($(Get-ChildItem -Path 'publish\source\addon-editorhistory\bin\*' -Include '*.addon', '*.addon32', '*.addon64'))
 $compressionFiles.AddRange($(Get-ChildItem -Path 'publish\source\addon-screenshot\bin\*' -Include '*.addon', '*.addon32', '*.addon64'))
+$compressionFiles.AddRange($(Get-ChildItem -Path 'publish\source\addon-uibind\bin\*' -Include '*.addon', '*.addon32', '*.addon64'))
 
 Compress-Archive $compressionFiles -CompressionLevel Optimal -DestinationPath $compressionFilePath -Force
 

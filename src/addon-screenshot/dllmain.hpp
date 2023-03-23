@@ -8,6 +8,8 @@
 #include "res\version.h"
 #include "screenshot.hpp"
 
+#include <reshade.hpp>
+
 #include <chrono>
 #include <list>
 
