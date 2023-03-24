@@ -69,7 +69,7 @@ void screenshot_myset::load(const ini_file &config)
     if (!config.get(section.c_str(), "RepeatCount", repeat_count))
         repeat_count = 1;
     if (!config.get(section.c_str(), "RepeatWait", repeat_wait))
-        repeat_wait = 0;
+        repeat_wait = 60;
     if (!config.get(section.c_str(), "WorkerThreads", worker_threads))
         worker_threads = 0;
 }

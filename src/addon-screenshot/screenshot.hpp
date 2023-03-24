@@ -32,8 +32,8 @@ public:
     std::string name;
 
     unsigned int image_format = 0;
-    unsigned int repeat_count = 0;
-    unsigned int repeat_wait = 0;
+    unsigned int repeat_count = 1;
+    unsigned int repeat_wait = 60;
     unsigned int screenshot_key_data[4]{ 0, 0, 0, 0 };
 
     std::filesystem::path original_image;
