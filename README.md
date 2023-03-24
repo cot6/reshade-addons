@@ -26,6 +26,18 @@
 
 32ビット アプリケーションの場合: `ReShade32-Screenshot-By-seri14.addon32`
 
+## UIBind
+
+ユニフォーム変数の ui_bind アノテーションをサポートします。
+
+### 導入方法
+
+アドオン ファイルをReShadeのアドオン フォルダに配置して下さい。(既定ではReShadeのDLLファイルと同じ場所)
+
+64ビット アプリケーションの場合: `ReShade64-UIBind-By-seri14.addon64`
+
+32ビット アプリケーションの場合: `ReShade32-UIBind-By-seri14.addon32`
+
 ## ライセンス
 
 このリポジトリを [LICENSE.md](LICENSE.md) に記載した条件で公開します。
