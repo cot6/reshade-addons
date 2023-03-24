@@ -12,7 +12,7 @@
 #include <imgui.h>
 #include <reshade.hpp>
 
-bool key_input_box(const char *name, unsigned int(&key)[4], reshade::api::effect_runtime *runtime)
+bool reshade::imgui::key_input_box(const char *name, unsigned int(&key)[4], reshade::api::effect_runtime *runtime)
 {
     bool res = false;
     char buf[48]{};

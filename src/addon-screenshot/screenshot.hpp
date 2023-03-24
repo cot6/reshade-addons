@@ -77,6 +77,12 @@ class screenshot_config
 {
 public:
     std::list<screenshot_myset> screenshot_mysets;
+    enum : unsigned int
+    {
+        hidden = 0,
+        always,
+        while_myset_is_active,
+    } show_osd;
 
     void load(const ini_file &config);
     void save(ini_file &config, bool header_only = false);

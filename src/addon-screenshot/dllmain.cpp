@@ -191,6 +191,18 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
 
+    switch (ctx.config.show_osd)
+    {
+        case decltype(screenshot_config::show_osd)::hidden:
+            return;
+        case decltype(screenshot_config::show_osd)::always:
+            break;
+        case decltype(screenshot_config::show_osd)::while_myset_is_active:
+            if (ctx.active_screenshot == nullptr)
+                return;
+            break;
+    }
+
     ImGui::TextUnformatted("Active set: ");
     if (ctx.active_screenshot)
     {
@@ -203,7 +215,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     if (ctx.active_screenshot != nullptr)
     {
         fraction = ctx.active_screenshot->repeat_count != 0 ? (static_cast<float>(ctx.screenshot_repeat_index + 1) / ctx.active_screenshot->repeat_count) : 1.0f;
-        str = std::format(ctx.active_screenshot->repeat_count != 0 ? "%u of %u" : "%u times (Infinite mode)", (ctx.screenshot_repeat_index + 1), ctx.active_screenshot->repeat_count);
+        str = std::format(ctx.active_screenshot->repeat_count != 0 ? "%u of %u" : "%u times (Infinite mode)", (ctx.screenshot_repeat_index), ctx.active_screenshot->repeat_count);
     }
     else
     {
@@ -240,6 +252,8 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
     if (ImGui::CollapsingHeader("Screenshot [seri14's Add-On]", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        modified |= ImGui::Combo("Show OSD", reinterpret_cast<int *>(&ctx.config.show_osd), "Hidden\0Always\0While myset is active\0");
+
         char buf[4096];
 
         for (screenshot_myset &screenshot_myset : ctx.config.screenshot_mysets)
@@ -253,7 +267,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     static const std::wstring_view invalid_characters = L"[]\"/|?*";
                     return 0x0 <= data->EventChar && data->EventChar <= 0x1F || data->EventChar == 0x7F || invalid_characters.find(data->EventChar) != std::string::npos;
                 };
-                modified |= key_input_box("Screenshot key", screenshot_myset.screenshot_key_data, runtime);
+                modified |= reshade::imgui::key_input_box("Screenshot key", screenshot_myset.screenshot_key_data, runtime);
                 bool isItemHovered = false;
                 if (buf[screenshot_myset.original_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
                     ImGui::InputTextWithHint("Original image", "Enter path to enable", buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))

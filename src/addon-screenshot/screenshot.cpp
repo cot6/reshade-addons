@@ -20,7 +20,10 @@
 void screenshot_config::load(const ini_file &config)
 {
     std::string preset_names;
-    config.get("SCREENSHOT", "PresetNames", preset_names);
+    if (!config.get("SCREENSHOT", "PresetNames", preset_names))
+        preset_names.clear();
+    if (!config.get("OVERLAY", "ShowOSD", reinterpret_cast<unsigned int &>(show_osd)))
+        show_osd = decltype(show_osd)::while_myset_is_active;
 
     for (size_t seek = 0; seek < preset_names.size();)
     {
@@ -48,6 +51,7 @@ void screenshot_config::save(ini_file &config, bool header_only)
         preset_names.resize(preset_names.size() - 1);
 
     config.set("SCREENSHOT", "PresetNames", preset_names);
+    config.set("OVERLAY", "ShowOSD", static_cast<unsigned int>(show_osd));
 }
 
 void screenshot_myset::load(const ini_file &config)
