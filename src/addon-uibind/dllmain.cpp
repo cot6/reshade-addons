@@ -10,13 +10,12 @@
 
 static bool on_reshade_set_uniform_value(reshade::api::effect_runtime *runtime, reshade::api::effect_uniform_variable variable, const void *value, size_t size)
 {
-    char ui_bind[256] = "";
-    size_t length = ARRAYSIZE(ui_bind);
+    char buf[260] = "";
 
-    if (!runtime->get_annotation_string_from_uniform_variable(variable, "ui_bind", ui_bind, &length))
+    if (!runtime->get_annotation_string_from_uniform_variable(variable, "ui_bind", buf))
         return false;
+    const std::string ui_bind = buf;
 
-    ui_bind[length] = '\0';
     reshade::api::format base_type = reshade::api::format::unknown;
     uint32_t rows = 0, cols = 0, array_length = 0;
     runtime->get_uniform_variable_type(variable, &base_type, &rows, &cols, &array_length);
@@ -65,47 +64,15 @@ static bool on_reshade_set_uniform_value(reshade::api::effect_runtime *runtime, 
     }
     if (!next.empty())
         next.resize(next.size() - 1);
-#if 0
-    switch (base_type)
-    {
-        case reshade::api::format::r32_typeless: // reshadefx::type::t_bool
-            next = std::format("matrix<bool,%u,%u>(%*s)", rows, cols, next.size(), next.c_str());
-            break;
-        case reshade::api::format::r16_sint: // reshadefx::type::t_min16int:
-            next = std::format("matrix<min16int,%u,%u>(%*s)", rows, cols, next.size(), next.c_str());
-            break;
-        case reshade::api::format::r32_sint: // reshadefx::type::t_int:
-            next = std::format("matrix<int,%u,%u>(%*s)", rows, cols, next.size(), next.c_str());
-            break;
-        case reshade::api::format::r16_uint: // reshadefx::type::t_min16uint:
-            next = std::format("matrix<min16uint,%u,%u>(%*s)", rows, cols, next.size(), next.c_str());
-            break;
-        case reshade::api::format::r32_uint: // reshadefx::type::t_uint:
-            next = std::format("matrix<uint,%u,%u>(%*s)", rows, cols, next.size(), next.c_str());
-            break;
-        case reshade::api::format::r16_float: // reshadefx::type::t_min16float:
-            next = std::format("matrix<min16float,%u,%u>(%*s)", rows, cols, next.size(), next.c_str());
-            break;
-        case reshade::api::format::r32_float: // reshadefx::type::t_float:
-            next = std::format("matrix<float,%u,%u>(%*s)", rows, cols, next.size(), next.c_str());
-            break;
-        default: // reshade::api::format::unknown
-            break;
-    }
-#endif
 
-    char effect_name[256] = "";
-    length = ARRAYSIZE(effect_name);
-    runtime->get_uniform_variable_effect_name(variable, effect_name, &length);
-    effect_name[length] = '\0';
+    runtime->get_uniform_variable_effect_name(variable, buf);
+    const std::string effect_name = buf;
 
-    char prev[256] = "";
-    length = ARRAYSIZE(prev);
-    const bool exists = runtime->get_preprocessor_definition(ui_bind, prev, &length);
-    prev[length] = '\0';
+    const bool exists = runtime->get_preprocessor_definition(ui_bind.c_str(), buf);
+    const std::string prev = buf;
 
     if (!exists || next != prev)
-        runtime->set_preprocessor_definition(effect_name, ui_bind, next.c_str());
+        runtime->set_preprocessor_definition(effect_name.c_str(), ui_bind.c_str(), next.c_str());
 
     return false;
 }
