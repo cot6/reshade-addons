@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-FileCopyrightText: Copyright (C) 2022 Patrick Mours
  * SPDX-License-Identifier: BSD-3-Clause
@@ -232,16 +232,17 @@ std::string screenshot::expand_macro_string(const std::string &input)
             return std::format(zeroed ? "%0*u" : "%*u", digits, repeat_index);
         });
 
-    macros.emplace_back("DATE", [this](std::string_view fmt) {
-        const std::time_t t = std::chrono::system_clock::to_time_t(frame_time);
-        struct tm tm; localtime_s(&tm, &t);
-        if (fmt.empty())
-            fmt = "%Y-%m-%d %H-%M-%S";
-        char str[128] = "";
-        const std::string tailzeroed_fmt = std::string(fmt);
-        size_t len = strftime(str, ARRAYSIZE(str), tailzeroed_fmt.c_str(), &tm);
-        return std::string(str, len);
-    });
+    macros.emplace_back("DATE",
+        [this](std::string_view fmt) {
+            const std::time_t t = std::chrono::system_clock::to_time_t(frame_time);
+            struct tm tm; localtime_s(&tm, &t);
+            if (fmt.empty())
+                fmt = "%Y-%m-%d %H-%M-%S";
+            char str[128] = "";
+            const std::string tailzeroed_fmt = std::string(fmt);
+            size_t len = strftime(str, ARRAYSIZE(str), tailzeroed_fmt.c_str(), &tm);
+            return std::string(str, len);
+        });
 
     std::string result;
 
