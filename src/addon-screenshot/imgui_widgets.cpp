@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (C) 2022 Patrick Mours
+ * SPDX-FileCopyrightText: Copyright (C) 2014 Patrick Mours
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -25,7 +25,7 @@ bool reshade::imgui::key_input_box(const char *name, unsigned int(&key)[4], resh
     {
         if (const unsigned int last_key_pressed = runtime->last_key_pressed(); last_key_pressed != 0)
         {
-            if (last_key_pressed == static_cast<unsigned int>(ImGui::GetKeyIndex(ImGuiKey_Backspace)))
+            if (last_key_pressed == 0x08) // Backspace
             {
                 key[0] = 0;
                 key[1] = 0;

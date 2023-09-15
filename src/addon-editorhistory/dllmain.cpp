@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2018 seri14
+// SPDX-FileCopyrightText: 2018 seri14
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "dllmain.hpp"

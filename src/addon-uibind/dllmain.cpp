@@ -72,7 +72,7 @@ static bool on_reshade_set_uniform_value(reshade::api::effect_runtime *runtime, 
     const std::string prev = buf;
 
     if (!exists || next != prev)
-        runtime->set_preprocessor_definition(effect_name.c_str(), ui_bind.c_str(), next.c_str());
+        runtime->set_preprocessor_definition_for_effect(effect_name.c_str(), ui_bind.c_str(), next.c_str());
 
     return false;
 }
