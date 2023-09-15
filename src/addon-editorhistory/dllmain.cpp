@@ -53,6 +53,11 @@ static void on_destroy(reshade::api::effect_runtime *runtime)
 {
     runtime->destroy_private_data<history_context>();
 }
+static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
+{
+    history_context &ctx = runtime->get_private_data<history_context>();
+    ctx.histories.clear();
+}
 
 static void on_reshade_set_current_preset_path(reshade::api::effect_runtime *runtime, const char *)
 {
@@ -66,10 +71,6 @@ static void on_reshade_set_current_preset_path(reshade::api::effect_runtime *run
 static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade::api::effect_uniform_variable variable, const void *value, size_t size)
 {
     history_context &ctx = runtime->get_private_data<history_context>();
-
-    char ui_type[16] = "";
-    if (!runtime->get_annotation_string_from_uniform_variable(variable, "ui_type", ui_type))
-        return false;
 
     reshade::api::format basetype;
     runtime->get_uniform_variable_type(variable, &basetype);
@@ -90,6 +91,8 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
         case reshade::api::format::r32_uint:
             runtime->get_uniform_value_uint(variable, before.as_uint, 16);
             break;
+        default:
+            return false; // Unknown type from future version
     }
 
     std::memcpy(after.as_uint, value, std::min(size, size_t(4 * 16)));
@@ -379,6 +382,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
                 return FALSE;
             reshade::register_event<reshade::addon_event::init_effect_runtime>(on_init);
             reshade::register_event<reshade::addon_event::destroy_effect_runtime>(on_destroy);
+            reshade::register_event<reshade::addon_event::reshade_reloaded_effects>(on_reshade_reloaded_effects);
             reshade::register_event<reshade::addon_event::reshade_set_current_preset_path>(on_reshade_set_current_preset_path);
             reshade::register_event<reshade::addon_event::reshade_set_uniform_value>(on_set_uniform_value);
             reshade::register_event<reshade::addon_event::reshade_set_technique_state>(on_set_technique_state);
