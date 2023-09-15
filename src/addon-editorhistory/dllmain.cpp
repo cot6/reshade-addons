@@ -70,6 +70,10 @@ static void on_reshade_set_current_preset_path(reshade::api::effect_runtime *run
 
 static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade::api::effect_uniform_variable variable, const void *value, size_t size)
 {
+    // Ignore special uniform variables
+    if (runtime->get_annotation_string_from_uniform_variable(variable, "source", nullptr, nullptr))
+        return false;
+
     history_context &ctx = runtime->get_private_data<history_context>();
 
     reshade::api::format basetype;
