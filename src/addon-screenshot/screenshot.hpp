@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -24,6 +24,17 @@ enum screenshot_kind
     before,
     after,
     overlay,
+};
+
+class screenshot_state
+{
+public:
+    std::atomic<unsigned int> error_occurs;
+
+    void reset()
+    {
+        error_occurs = 0;
+    }
 };
 
 class screenshot_myset
@@ -70,7 +81,7 @@ public:
     }
 
     void load(const ini_file &config);
-    void save(ini_file &config);
+    void save(ini_file &config) const;
 };
 
 class screenshot_config
@@ -116,21 +127,22 @@ public:
     screenshot_environment environment;
 
     screenshot_myset myset;
-    unsigned int repeat_index = 0;
+    screenshot_state &state;
 
-    std::chrono::system_clock::time_point frame_time;
+    screenshot_kind kind = screenshot_kind::unset;
+    unsigned int repeat_index = 0;
 
     unsigned int height = 0, width = 0;
     std::vector<uint8_t> pixels;
-
-    screenshot_kind kind = screenshot_kind::unset;
+    std::chrono::system_clock::time_point frame_time;
 
     screenshot() = default;
     screenshot(screenshot &&screenshot) = default;
-    screenshot(reshade::api::effect_runtime *runtime, const screenshot_environment &environment, const screenshot_myset &myset, screenshot_kind kind) :
+    screenshot(reshade::api::effect_runtime *runtime, const screenshot_environment &environment, const screenshot_myset &myset, screenshot_kind kind, screenshot_state &state) :
         environment(environment),
+        myset(myset),
         kind(kind),
-        myset(myset)
+        state(state)
     {
         capture(runtime);
     }

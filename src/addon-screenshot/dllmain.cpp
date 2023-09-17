@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -77,7 +77,7 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
 
     if (ctx.is_screenshot_frame(screenshot_kind::original))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::original);
+        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::original, ctx.screenshot_state);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 }
@@ -88,7 +88,7 @@ static void on_begin_effects(reshade::api::effect_runtime *runtime, reshade::api
 
     if (ctx.is_screenshot_frame(screenshot_kind::before))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::before);
+        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::before, ctx.screenshot_state);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 }
@@ -99,7 +99,7 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
 
     if (ctx.is_screenshot_frame(screenshot_kind::after))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::after);
+        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::after, ctx.screenshot_state);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 }
@@ -110,7 +110,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
     if (ctx.is_screenshot_frame(screenshot_kind::overlay))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::overlay);
+        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::overlay, ctx.screenshot_state);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
@@ -164,6 +164,8 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                 }
                 else
                 {
+                    ctx.screenshot_state.reset();
+
                     ctx.active_screenshot = &screenshot_myset;
                     ctx.screenshot_begin_frame = ctx.screenshot_current_frame + 1;
                     ctx.screenshot_repeat_index = 0;
@@ -185,6 +187,9 @@ static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
     // Disable keyboard shortcuts while typing into input boxes
     ctx.ignore_shortcuts = ImGui::IsAnyItemActive();
 }
+
+static const ImVec4 COLOR_RED = ImColor(240, 100, 100);
+static const ImVec4 COLOR_YELLOW = ImColor(204, 204, 0);
 
 static void draw_osd_window(reshade::api::effect_runtime *runtime)
 {
@@ -233,6 +238,12 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         });
     str = std::format("%u shots in queue (%.3lf MiB)", ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
     ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
+    if (ctx.active_screenshot != nullptr && ctx.screenshot_state.error_occurs > 0)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+        ImGui::TextUnformatted("Some errors occurred. Check the log for more details.");
+        ImGui::PopStyleColor();
+    }
 }
 static void draw_setting_window(reshade::api::effect_runtime *runtime)
 {

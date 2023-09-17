@@ -77,7 +77,7 @@ void screenshot_myset::load(const ini_file &config)
     if (!config.get(section.c_str(), "WorkerThreads", worker_threads))
         worker_threads = 0;
 }
-void screenshot_myset::save(ini_file &config)
+void screenshot_myset::save(ini_file &config) const
 {
     std::string section = ':' + name;
 
@@ -154,21 +154,21 @@ void screenshot::save()
     {
         image_file.replace_extension() += L".png";
 
-        const size_t channels = myset.image_format == 0 ? 3 : 4;
-
-        uint8_t *const pixel = pixels.data();
-        const size_t size = static_cast<size_t>(width) * height;
-
-        if (channels == 3)
+        FILE *file = nullptr;
+        if (errno_t fopen_error = _wfopen_s(&file, image_file.native().c_str(), L"wb");
+            file != nullptr)
         {
-            for (size_t i = 0; i < size; i++)
-                *((uint32_t *)&pixel[3 * i]) =
-                *((uint32_t *)&pixel[4 * i]);
-        }
+            const size_t channels = myset.image_format == 0 ? 3 : 4;
+            const size_t size = static_cast<size_t>(width) * height;
 
-        if (FILE *file = nullptr;
-            _wfopen_s(&file, image_file.native().c_str(), L"wb") == 0)
-        {
+            uint8_t *const pixel = pixels.data();
+            if (channels == 3)
+            {
+                for (size_t i = 0; i < size; i++)
+                    *((uint32_t *)&pixel[3 * i]) =
+                    *((uint32_t *)&pixel[4 * i]);
+            }
+
             png_structp write_ptr = nullptr;
             png_infop info_ptr = nullptr;
 
@@ -190,6 +190,11 @@ void screenshot::save()
                     info_ptr != nullptr)
                 {
                     png_set_IHDR(write_ptr, info_ptr, width, height, 8, myset.image_format == 0 ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+
+                    png_time mod_time{};
+                    png_convert_from_time_t(&mod_time, std::chrono::system_clock::to_time_t(frame_time));
+                    png_set_tIME(write_ptr, info_ptr, &mod_time);
+
                     png_write_info(write_ptr, info_ptr);
 
                     std::vector<png_bytep> rows(height);
@@ -205,6 +210,14 @@ void screenshot::save()
             png_destroy_info_struct(write_ptr, &info_ptr);
 
             fclose(file);
+        }
+        else
+        {
+            char buffer[BUFSIZ]{};
+            if (strerror_s(buffer, fopen_error) == 0)
+                reshade::log_message(reshade::log_level::error, std::format("Failed to save screenshot: %s (%d)", buffer, fopen_error).c_str());
+
+            state.error_occurs++;
         }
     }
 

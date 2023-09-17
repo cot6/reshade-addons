@@ -26,6 +26,7 @@ public:
     std::chrono::steady_clock::time_point present_time;
 
     screenshot_myset *active_screenshot = nullptr;
+    screenshot_state screenshot_state;
 
     uint64_t screenshot_begin_frame = std::numeric_limits<decltype(screenshot_begin_frame)>::max();
     uint64_t screenshot_current_frame = 0;
