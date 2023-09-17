@@ -1,5 +1,6 @@
 ﻿#Requires -version 7.2
 
+using namespace System.Collections
 using namespace System.IO
 using namespace System.Text
 
@@ -37,14 +38,32 @@ if ( $( git describe --long --tags ) -notmatch 'v(.+)-(\d+)-g(.+)' )
 $versionTag = $matches[1]
 $version = $versionTag.Split('-')
 $versionExtra = $version[1] ? ('-' + $version[1]) : ''
-$version = $version[0] + '.' + $(git rev-list HEAD --count)
+$version = $version[0] + '.' + $matches[2]
 $version = [Version]::new($version)
 $tagRange = [int]::Parse($matches[2])
-$tagRangeStr =  $tagRange -eq 0 ? '' : ('+' + $tagRange)
+$tagRangeStr =  $tagRange -gt 0 ? ('+' + $tagRange) : ''
 $sha1 = $matches[3]
 
 $developing = $( git status --short ) | Where-Object { $_ -notlike '`?`?*' -and $_ -notlike '!!*' } | Where-Object { $_ -notlike "`?`? deps/reshade" }
 $developingStr = $developing ? ' UNCOMMITED' : ''
+
+$fileFlags = [ArrayList]::new()
+if ($developing) {
+    $fileFlags.Add('VS_FF_PATCHED') | Out-Null
+    Write-Warning 'コミットされていない変更が含まれています。リリースする前にコミットIDを確定して下さい。'
+}
+if ($tagRange) {
+    $fileFlags.Add('VS_FF_PRERELEASE') | Out-Null
+    Write-Warning 'リリースの準備ができていません。バージョンの最下位は 0 であるべきです。'
+}
+if (-not $Env:CI -and -not $Env:APPVEYOR) {
+    $fileFlags.Add('VS_FF_PRIVATEBUILD') | Out-Null
+    Write-Warning '個人開発機でビルドされました。バイナリ互換性、依存関係、その他に因る障害が発生する可能性があります。'
+}
+if ($fileFlags.Count -lt 1) {
+    $fileFlags.Add('0x0L') | Out-Null
+}
+$fileFlags = $fileFlags -join ' | '
 
 # --------------------------------------
 # メタ データをファイルに出力する
@@ -62,6 +81,16 @@ $content = @"
 #define ADDON_STRING_FILE "$( git describe --long --tags )$developingStr"
 #define ADDON_STRING_PRODUCT "$( git describe --long --tags )/$( git rev-parse --abbrev-ref HEAD )$developingStr"
 
+#ifdef _DEBUG
+#define ADDON_FILEFLAGS ($fileFlags | VS_FF_DEBUG)
+#else
+#define ADDON_FILEFLAGS ($fileFlags)
+#endif
+
+#if ADDON_FILEFLAGS & VS_FF_PRIVATEBUILD
+#define ADDON_PRIVATEBUILD `"Built by $(git config user.name) ($(git config user.email))` at $([DateTimeOffset]::Now.ToString('O'))"
+#endif
+
 "@
 
 $VersionHeaderFile = [FileInfo]::new([Path]::Combine($ProjectDir, 'res', 'version.h'))
@@ -72,7 +101,7 @@ if (-not $VersionHeaderFile.Directory.Exists)
 
 try
 {
-    [File]::WriteAllText($VersionHeaderFile, $content, [UTF8Encoding]::new($true, $true))
+    [File]::WriteAllText($VersionHeaderFile, $content, [UTF8Encoding]::new($false, $true))
 }
 catch
 {

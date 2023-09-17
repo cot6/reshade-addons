@@ -93,7 +93,7 @@ public:
         hidden = 0,
         always,
         while_myset_is_active,
-    } show_osd;
+    } show_osd = hidden;
 
     void load(const ini_file &config);
     void save(ini_file &config, bool header_only = false);

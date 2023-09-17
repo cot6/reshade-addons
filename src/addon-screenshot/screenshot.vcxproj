@@ -79,7 +79,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <PreBuildEvent>
-      <Command>"pwsh.exe" "$(ProjectDir)..\..\tools\verbuild.ps1"</Command>
+      <Command>"pwsh.exe" "-File" "$(ProjectDir)..\..\tools\verbuild.ps1"</Command>
       <Message>開発環境からメタ情報を取得し、バージョン情報 version.h を作成します。</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>

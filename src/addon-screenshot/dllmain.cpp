@@ -265,7 +265,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
     {
         modified |= ImGui::Combo("Show OSD", reinterpret_cast<int *>(&ctx.config.show_osd), "Hidden\0Always\0While myset is active\0");
 
-        char buf[4096];
+        char buf[4096] = "";
 
         for (screenshot_myset &screenshot_myset : ctx.config.screenshot_mysets)
         {

@@ -57,9 +57,6 @@
     <IntDir>$(ProjectDir)..\..\intermediate\$(ProjectName)\$(Configuration)\$(Platform)\</IntDir>
     <OutDir>$(ProjectDir)..\..\bin\$(ProjectName)\$(Configuration)\$(Platform)\</OutDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-    <LinkIncremental>false</LinkIncremental>
-  </PropertyGroup>
   <ItemDefinitionGroup>
     <BuildLog>
       <Path>$(ProjectDir)..\..\bin\$(ProjectName)\$(Configuration)\$(Platform)\$(TargetName).log</Path>
@@ -81,13 +78,12 @@
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <PreBuildEvent>
-      <Command>"pwsh.exe" "$(ProjectDir)..\..\tools\verbuild.ps1"</Command>
+      <Command>"pwsh.exe" "-File" "$(ProjectDir)..\..\tools\verbuild.ps1"</Command>
       <Message>開発環境からメタ情報を取得し、バージョン情報 version.h を作成します。</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <ClCompile>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>

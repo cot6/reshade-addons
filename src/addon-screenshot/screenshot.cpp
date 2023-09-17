@@ -259,7 +259,9 @@ std::string screenshot::expand_macro_string(const std::string &input)
 
     std::string result;
 
-    for (size_t offset = 0, macro_beg, macro_end; offset < input.size(); offset = macro_end + 1)
+    for (size_t offset = 0, macro_beg = std::string::npos, macro_end = std::string::npos;
+        offset < input.size();
+        offset = macro_end + 1)
     {
         macro_beg = input.find('<', offset);
         macro_end = input.find('>', macro_beg + 1);
