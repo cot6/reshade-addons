@@ -4,3 +4,6 @@
 [submodule "deps/vcpkg"]
 	path = deps/vcpkg
 	url = https://github.com/microsoft/vcpkg.git
+[submodule "deps/fpng"]
+	path = deps/fpng
+	url = https://github.com/richgel999/fpng.git

@@ -13,6 +13,8 @@
 #include <zlib.h>
 #include <png.h>
 
+#include <fpng.h>
+
 #include <filesystem>
 #include <list>
 #include <string>
@@ -325,7 +327,12 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         ctx.environment.reshade_executable_path.stem().string().c_str(),
                         ctx.environment.reshade_preset_path.stem().string().c_str());
                 }
-                modified |= ImGui::Combo("File format", reinterpret_cast<int *>(&screenshot_myset.image_format), "24-bit PNG (RGB8)\0" "32-bit PNG (RGBA8)\0");
+                modified |= ImGui::Combo("File format", reinterpret_cast<int *>(&screenshot_myset.image_format),
+                    "[libpng] 24-bit PNG\0"
+                    "[libpng] 32-bit PNG\0"
+                    "[fpng] 24-bit PNG\0"
+                    "[fpng] 32-bit PNG\0"
+                );
                 if (ImGui::DragInt("Repeat count", reinterpret_cast<int *>(&screenshot_myset.repeat_count), 1.0f, 0, 0, screenshot_myset.repeat_count == 0 ? "infinity" : "%d"))
                 {
                     if (static_cast<int>(screenshot_myset.repeat_count) < 0)
@@ -380,6 +387,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         case DLL_PROCESS_ATTACH:
             if (!reshade::register_addon(hModule))
                 return FALSE;
+
+            fpng::fpng_init();
+
             reshade::register_event<reshade::addon_event::init_effect_runtime>(on_init);
             reshade::register_event<reshade::addon_event::destroy_device>(on_destroy);
             reshade::register_event<reshade::addon_event::present>(on_device_present);

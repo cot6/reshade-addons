@@ -65,7 +65,7 @@
       <ConformanceMode>true</ConformanceMode>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;ImTextureID=ImU64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;ImTextureID=ImU64;FPNG_NO_STDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <WarningLevel>Level4</WarningLevel>
     </ClCompile>
@@ -120,6 +120,9 @@
     <ClInclude Include="runtime_config.hpp" />
     <ClInclude Include="screenshot.hpp" />
     <ClInclude Include="std_string_ext.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\deps\fpng\src\fpng.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />

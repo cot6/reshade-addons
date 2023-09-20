@@ -12,6 +12,8 @@
 #include <png.h>
 #include <zlib.h>
 
+#include <fpng.h>
+
 #include <functional>
 #include <list>
 #include <string>
@@ -218,6 +220,50 @@ void screenshot::save()
                 reshade::log_message(reshade::log_level::error, std::format("Failed to save screenshot: %s (%d)", buffer, fopen_error).c_str());
 
             state.error_occurs++;
+        }
+    }
+    if (myset.image_format == 2 || myset.image_format == 3)
+    {
+        image_file.replace_extension() += L".png";
+
+        const size_t channels = myset.image_format == 2 ? 3 : 4;
+        const size_t size = static_cast<size_t>(width) * height;
+
+        uint8_t *const pixel = pixels.data();
+        if (channels == 3)
+        {
+            for (size_t i = 0; i < size; i++)
+                *((uint32_t *)&pixel[3 * i]) =
+                *((uint32_t *)&pixel[4 * i]);
+        }
+
+        if (std::vector<uint8_t> encoded_pixels;
+            fpng::fpng_encode_image_to_memory(pixels.data(), width, height, static_cast<uint32_t>(channels), encoded_pixels))
+        {
+            enum class condition { none, open, create, blocked };
+            auto condition = condition::none;
+
+            const HANDLE file = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+
+            if (file == INVALID_HANDLE_VALUE)
+                condition = condition::blocked;
+            else if (GetLastError() == ERROR_ALREADY_EXISTS)
+                condition = condition::open;
+            else
+                condition = condition::create;
+
+            if (condition == condition::open || condition == condition::create)
+            {
+                if (DWORD _; WriteFile(file, encoded_pixels.data(), static_cast<DWORD>(encoded_pixels.size()), &_, NULL) != 0)
+                    SetEndOfFile(file);
+            }
+
+            if (file != INVALID_HANDLE_VALUE)
+                CloseHandle(file);
+        }
+        else
+        {
+            reshade::log_message(reshade::log_level::error, "Failed to save screenshot: fpng_encode_image_to_memory()");
         }
     }
 
