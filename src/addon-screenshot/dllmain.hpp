@@ -44,4 +44,6 @@ public:
     inline bool is_screenshot_active() const noexcept;
     inline bool is_screenshot_frame() const noexcept;
     inline bool is_screenshot_frame(screenshot_kind kind) const noexcept;
+
+    reshade::api::effect_technique screenshotdepth_technique {};
 };

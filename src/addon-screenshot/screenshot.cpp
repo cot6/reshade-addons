@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "dll_resources.hpp"
+
 #include "runtime_config.hpp"
 #include "screenshot.hpp"
 
@@ -72,6 +74,8 @@ void screenshot_myset::load(const ini_file &config)
         original_image.clear();
     if (!config.get(section.c_str(), "OverlayImage", overlay_image))
         overlay_image.clear();
+    if (!config.get(section.c_str(), "DepthImage", depth_image))
+        depth_image.clear();
     if (!config.get(section.c_str(), "RepeatCount", repeat_count))
         repeat_count = 1;
     if (!config.get(section.c_str(), "RepeatWait", repeat_wait))
@@ -89,6 +93,7 @@ void screenshot_myset::save(ini_file &config) const
     config.set(section.c_str(), "KeyScreenshot", screenshot_key_data);
     config.set(section.c_str(), "OriginalImage", original_image);
     config.set(section.c_str(), "OverlayImage", overlay_image);
+    config.set(section.c_str(), "DepthImage", depth_image);
     config.set(section.c_str(), "RepeatCount", repeat_count);
     config.set(section.c_str(), "RepeatWait", repeat_wait);
     config.set(section.c_str(), "WorkerThreads", worker_threads);
@@ -102,7 +107,13 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
         char as_char[SIZE / sizeof(char)];
         wchar_t as_wchar[SIZE / sizeof(wchar_t)];
     } buf{};
+    std::error_code ec {};
     size_t size;
+
+    size = ExpandEnvironmentStringsW(L"%ALLUSERSPROFILE%", buf.as_wchar, ARRAYSIZE(buf.as_wchar));
+    addon_private_path = std::wstring(buf.as_wchar, size > 0 ? size - 1 : 0);
+    addon_private_path = addon_private_path / L"ReShade Addons" / L"Seri" / L"Screenshot" / L"reshade-shaders" / L"Shaders";
+    std::filesystem::create_directories(addon_private_path, ec);
 
     if (size = ARRAYSIZE(buf.as_char), reshade::get_reshade_base_path(buf.as_char, &size); size != 0)
         reshade_base_path = std::filesystem::u8path(std::string(buf.as_char, size));
@@ -114,12 +125,85 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
     else
         reshade_executable_path.clear();
 
-    if (size = ARRAYSIZE(buf.as_char), runtime->get_current_preset_path(buf.as_char, &size); size)
-        reshade_preset_path = std::filesystem::u8path(std::string(buf.as_char, size));
-    else
-        reshade_preset_path.clear();
+    if (runtime != nullptr)
+    {
+        if (size = ARRAYSIZE(buf.as_char), runtime->get_current_preset_path(buf.as_char, &size); size)
+            reshade_preset_path = std::filesystem::u8path(std::string(buf.as_char, size));
+        else
+            reshade_preset_path.clear();
+    }
 
     addon_screenshot_config_path = reshade_base_path / L"ReShade_Add-On_Screenshot.ini";
+}
+void screenshot_environment::init()
+{
+    std::error_code ec{};
+    if (std::filesystem::create_directories(addon_private_path, ec); ec.value() == 0)
+    {
+        const std::filesystem::path copy_to = addon_private_path / L"__Addon_ScreenshotDepth_Seri14.fx";
+        if (std::filesystem::path copy_from = addon_private_path / L"__Addon_ScreenshotDepth_Seri14.fxgen";
+            std::filesystem::exists(copy_from))
+        {
+            std::filesystem::copy_file(copy_from, copy_to, std::filesystem::copy_options::overwrite_existing, ec);
+        }
+        else
+        {
+            const reshade::resources::data_resource resource = reshade::resources::load_data_resource(IDR_SCREENSHOTDEPTH_FX);
+
+            enum class condition { none, open, create, blocked };
+            auto condition = condition::none;
+
+            const HANDLE file = CreateFileW(copy_to.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+
+            if (file == INVALID_HANDLE_VALUE)
+                condition = condition::blocked;
+            else if (GetLastError() == ERROR_ALREADY_EXISTS)
+                condition = condition::open;
+            else
+                condition = condition::create;
+
+            if (condition == condition::open || condition == condition::create)
+            {
+                if (DWORD _; WriteFile(file, resource.data, static_cast<DWORD>(resource.data_size), &_, NULL) != 0)
+                    SetEndOfFile(file);
+            }
+
+            if (file != INVALID_HANDLE_VALUE)
+                CloseHandle(file);
+        }
+    }
+
+    auto try_update_config = [this](const std::filesystem::path &file, bool force = false) -> bool
+        {
+            ini_file config(file);
+
+            if (!force && !config.has("GENERAL", "EffectSearchPaths"))
+                return false;
+
+            std::vector<std::filesystem::path> effect_search_paths;
+            config.get("GENERAL", "EffectSearchPaths", effect_search_paths);
+
+            if (std::find_if(effect_search_paths.cbegin(), effect_search_paths.cend(),
+                [this](const std::filesystem::path &path) { std::error_code ec; return std::filesystem::equivalent(path, addon_private_path, ec); }) == effect_search_paths.cend())
+            {
+                effect_search_paths.push_back(addon_private_path);
+                config.set("GENERAL", "EffectSearchPaths", effect_search_paths);
+                config.flush_cache();
+            }
+        };
+
+    bool updated = false;
+    for (const std::filesystem::path &file : std::filesystem::directory_iterator(reshade_base_path, std::filesystem::directory_options::skip_permission_denied, ec))
+    {
+        if (file.extension() != ".ini")
+            continue;
+        if (!try_update_config(file))
+            continue;
+
+        updated = true;
+    }
+    if (!updated)
+        try_update_config(reshade_base_path / L"ReShade.ini", true);
 }
 
 void screenshot::save()
@@ -141,6 +225,9 @@ void screenshot::save()
         case screenshot_kind::overlay:
             image_file = myset.overlay_image;
             break;
+        case screenshot_kind::depth:
+            image_file = myset.depth_image;
+            break;
         default:
             reshade::log_message(reshade::log_level::debug, std::format("Unknown screenshot kind: %d", kind).c_str());
             return;
@@ -152,7 +239,78 @@ void screenshot::save()
     if (image_file.has_parent_path())
         std::filesystem::create_directory(image_file.parent_path(), ec);
 
-    if (myset.image_format == 0 || myset.image_format == 1)
+    if (kind == screenshot_kind::depth)
+    {
+        image_file.replace_extension() += L".png";
+
+        FILE *file = nullptr;
+        if (errno_t fopen_error = _wfopen_s(&file, image_file.native().c_str(), L"wb");
+            file != nullptr)
+        {
+            const size_t depth = 2;
+            const size_t size = static_cast<size_t>(width) * height;
+
+            uint8_t *const pixel = pixels.data();
+            for (size_t i = 0; i < pixels.size(); i += 2)
+            {
+                uint8_t *p = &pixel[i];
+                uint8_t l = p[0];
+                uint8_t h = p[1];
+                *reinterpret_cast<uint16_t *>(p) = ((uint16_t)l << 8) | h;
+            }
+
+            png_structp write_ptr = nullptr;
+            png_infop info_ptr = nullptr;
+
+            if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+                write_ptr != nullptr)
+            {
+                setvbuf(file, nullptr, _IOFBF, 1024 * 512);
+
+                png_init_io(write_ptr, file);
+                png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, PNG_ALL_FILTERS);
+
+                png_set_compression_mem_level(write_ptr, MAX_MEM_LEVEL);
+                png_set_compression_buffer_size(write_ptr, 65536);
+
+                png_set_compression_level(write_ptr, Z_BEST_COMPRESSION);
+                png_set_compression_strategy(write_ptr, Z_RLE);
+
+                if (info_ptr = png_create_info_struct(write_ptr);
+                    info_ptr != nullptr)
+                {
+                    png_set_IHDR(write_ptr, info_ptr, width, height, 16, PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+
+                    png_time mod_time {};
+                    png_convert_from_time_t(&mod_time, std::chrono::system_clock::to_time_t(frame_time));
+                    png_set_tIME(write_ptr, info_ptr, &mod_time);
+
+                    png_write_info(write_ptr, info_ptr);
+
+                    std::vector<png_bytep> rows(height);
+                    for (size_t y = 0; y < height; y++)
+                        rows[y] = pixel + depth * width * y;
+                    png_write_image(write_ptr, rows.data());
+
+                    png_write_end(write_ptr, info_ptr);
+                }
+            }
+
+            png_destroy_write_struct(&write_ptr, &info_ptr);
+            png_destroy_info_struct(write_ptr, &info_ptr);
+
+            fclose(file);
+        }
+        else
+        {
+            char buffer[BUFSIZ] {};
+            if (strerror_s(buffer, fopen_error) == 0)
+                reshade::log_message(reshade::log_level::error, std::format("Failed to save screenshot: %s (%d)", buffer, fopen_error).c_str());
+
+            state.error_occurs++;
+        }
+    }
+    else if (myset.image_format == 0 || myset.image_format == 1)
     {
         image_file.replace_extension() += L".png";
 
@@ -222,7 +380,7 @@ void screenshot::save()
             state.error_occurs++;
         }
     }
-    if (myset.image_format == 2 || myset.image_format == 3)
+    else if (myset.image_format == 2 || myset.image_format == 3)
     {
         image_file.replace_extension() += L".png";
 
