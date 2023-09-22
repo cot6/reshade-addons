@@ -84,11 +84,15 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
+    if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
+        ctx.screenshotdepth_technique.handle == 0)
+        ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.fx", "__Addon_Technique_ScreenshotDepth_Seri14");
+
     if (ctx.screenshotdepth_technique.handle != 0)
     {
         const bool enabled = ctx.is_screenshot_frame(screenshot_kind::depth);
 
-        if (runtime->get_technique_state(ctx.screenshotdepth_technique)!= enabled)
+        if (runtime->get_technique_state(ctx.screenshotdepth_technique) != enabled)
             runtime->set_technique_state(ctx.screenshotdepth_technique, enabled);
     }
 }
@@ -296,6 +300,10 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                     else
                         ctx.screenshot_worker_threads = ctx.environment.thread_hardware_concurrency;
 
+                    if (ctx.active_screenshot->is_enable(screenshot_kind::depth) &&
+                        ctx.screenshotdepth_technique.handle == 0)
+                        ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.fx", "__Addon_Technique_ScreenshotDepth_Seri14");
+
                     if (ctx.screenshotdepth_technique.handle != 0 &&
                         runtime->get_technique_state(ctx.screenshotdepth_technique) == false)
                         runtime->set_technique_state(ctx.screenshotdepth_technique, true);
@@ -369,6 +377,13 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
         ImGui::TextUnformatted("Some errors occurred. Check the log for more details.");
+        ImGui::PopStyleColor();
+    }
+    if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
+        ctx.screenshotdepth_technique.handle != 0)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+        ImGui::TextUnformatted("[BUGCHECK] \"Depth\" capture cannot be performed.");
         ImGui::PopStyleColor();
     }
 }

@@ -117,16 +117,12 @@
     <ClInclude Include="dllmain.hpp" />
     <ClInclude Include="imgui_widgets.hpp" />
     <ClInclude Include="input.hpp" />
+    <ClInclude Include="res\resource.h" />
+    <ClInclude Include="res\version.h" />
     <ClInclude Include="runtime_config.hpp" />
     <ClInclude Include="screenshot.hpp" />
     <ClInclude Include="std_string_ext.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="res\resource.h" />
-    <ClInclude Include="res\version.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\deps\fpng\src\fpng.cpp" />
+    <ClInclude Include="..\..\deps\fpng\src\fpng.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dll_resources.cpp" />
@@ -135,6 +131,7 @@
     <ClCompile Include="input.cpp" />
     <ClCompile Include="runtime_config.cpp" />
     <ClCompile Include="screenshot.cpp" />
+    <ClCompile Include="..\..\deps\fpng\src\fpng.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="res\resource.rc" />
