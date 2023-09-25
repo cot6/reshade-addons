@@ -11,10 +11,12 @@
 #include "runtime_config.hpp"
 #include "screenshot.hpp"
 
-#include <png.h>
-#include <zlib.h>
+#include <time.h>
 
 #include <fpng.h>
+#include <png.h>
+#include <tiffio.h>
+#include <zlib.h>
 
 #include <functional>
 #include <list>
@@ -189,7 +191,11 @@ void screenshot_environment::init()
                 effect_search_paths.push_back(addon_private_path);
                 config.set("GENERAL", "EffectSearchPaths", effect_search_paths);
                 config.flush_cache();
+
+                return true;
             }
+
+            return false;
         };
 
     bool updated = false;
@@ -241,73 +247,66 @@ void screenshot::save()
 
     if (kind == screenshot_kind::depth)
     {
-        image_file.replace_extension() += L".png";
+        int tif_ec = 0;
+        image_file.replace_extension() += L".tiff";
 
-        FILE *file = nullptr;
-        if (errno_t fopen_error = _wfopen_s(&file, image_file.native().c_str(), L"wb");
-            file != nullptr)
+        TIFF *tif = TIFFOpenW(image_file.native().c_str(), "wl");
+        if (tif != nullptr)
         {
-            const size_t depth = 2;
-            const size_t size = static_cast<size_t>(width) * height;
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(1024 * 1024 * 1, pixels.size()));
 
-            uint8_t *const pixel = pixels.data();
-            for (size_t i = 0; i < pixels.size(); i += 2)
-            {
-                uint8_t *p = &pixel[i];
-                uint8_t l = p[0];
-                uint8_t h = p[1];
-                *reinterpret_cast<uint16_t *>(p) = ((uint16_t)l << 8) | h;
-            }
+            // 256 - 259
+            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
+            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint16_t>(height));
+            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, (uint16_t)32);
+            TIFFSetField(tif, TIFFTAG_COMPRESSION, (uint16_t)COMPRESSION_ADOBE_DEFLATE);
 
-            png_structp write_ptr = nullptr;
-            png_infop info_ptr = nullptr;
+            // 262
+            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, (uint16_t)PHOTOMETRIC_MINISBLACK);
 
-            if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-                write_ptr != nullptr)
-            {
-                setvbuf(file, nullptr, _IOFBF, 1024 * 512);
+            // 263
+            TIFFSetField(tif, TIFFTAG_THRESHHOLDING, (uint16_t)THRESHHOLD_BILEVEL);
 
-                png_init_io(write_ptr, file);
-                png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, PNG_ALL_FILTERS);
+            // 266
+            TIFFSetField(tif, TIFFTAG_FILLORDER, (uint16_t)FILLORDER_MSB2LSB);
 
-                png_set_compression_mem_level(write_ptr, MAX_MEM_LEVEL);
-                png_set_compression_buffer_size(write_ptr, 65536);
+            // 274
+            TIFFSetField(tif, TIFFTAG_ORIENTATION, (uint16_t)ORIENTATION_TOPLEFT);
 
-                png_set_compression_level(write_ptr, Z_BEST_COMPRESSION);
-                png_set_compression_strategy(write_ptr, Z_RLE);
+            // 277 - 278
+            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, (uint16_t)1);
+            TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, static_cast<uint16_t>(height));
 
-                if (info_ptr = png_create_info_struct(write_ptr);
-                    info_ptr != nullptr)
-                {
-                    png_set_IHDR(write_ptr, info_ptr, width, height, 16, PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+            // 284
+            TIFFSetField(tif, TIFFTAG_PLANARCONFIG, (uint16_t)PLANARCONFIG_CONTIG);
 
-                    png_time mod_time {};
-                    png_convert_from_time_t(&mod_time, std::chrono::system_clock::to_time_t(frame_time));
-                    png_set_tIME(write_ptr, info_ptr, &mod_time);
+            // 296
+            TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, (uint16_t)RESUNIT_NONE);
 
-                    png_write_info(write_ptr, info_ptr);
+            // 305
+            TIFFSetField(tif, TIFFTAG_SOFTWARE, "ReShade Screenshot Add-on");
 
-                    std::vector<png_bytep> rows(height);
-                    for (size_t y = 0; y < height; y++)
-                        rows[y] = pixel + depth * width * y;
-                    png_write_image(write_ptr, rows.data());
+            // 306
+            const time_t timestamp = std::chrono::system_clock::to_time_t(frame_time);
+            if (tm utc; _gmtime64_s(&utc, &timestamp) == 0)
+                tif_ec = TIFFSetField(tif, TIFFTAG_DATETIME, std::format("%04d:%02d:%02d %02d:%02d:%02d", 1900 + utc.tm_year, 1 + utc.tm_mon, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec).c_str());
 
-                    png_write_end(write_ptr, info_ptr);
-                }
-            }
+            // 317
+            TIFFSetField(tif, TIFFTAG_PREDICTOR, (uint16_t)PREDICTOR_FLOATINGPOINT);
 
-            png_destroy_write_struct(&write_ptr, &info_ptr);
-            png_destroy_info_struct(write_ptr, &info_ptr);
+            // 339
+            TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_IEEEFP);
 
-            fclose(file);
-        }
-        else
-        {
-            char buffer[BUFSIZ] {};
-            if (strerror_s(buffer, fopen_error) == 0)
-                reshade::log_message(reshade::log_level::error, std::format("Failed to save screenshot: %s (%d)", buffer, fopen_error).c_str());
+            // 65557
+            TIFFSetField(tif, TIFFTAG_ZIPQUALITY, (uint32_t)Z_BEST_COMPRESSION);
 
-            state.error_occurs++;
+            const size_t row_strip_length = 4 * width;
+            uint8_t *row = pixels.data();
+            for (size_t y = 0; y < height; ++y, row += row_strip_length)
+                TIFFWriteScanline(tif, row, y, row_strip_length);
+
+            if (tif)
+                TIFFClose(tif);
         }
     }
     else if (myset.image_format == 0 || myset.image_format == 1)
@@ -422,6 +421,82 @@ void screenshot::save()
         else
         {
             reshade::log_message(reshade::log_level::error, "Failed to save screenshot: fpng_encode_image_to_memory()");
+        }
+    }
+    else if (myset.image_format == 4 || myset.image_format == 5)
+    {
+        int tif_ec = 0;
+        image_file.replace_extension() += L".tiff";
+
+        const size_t channels = myset.image_format == 4 ? 3 : 4;
+        const size_t size = static_cast<size_t>(width) * height;
+
+        uint8_t *const pixel = pixels.data();
+        if (channels == 3)
+        {
+            for (size_t i = 0; i < size; i++)
+                *((uint32_t *)&pixel[3 * i]) =
+                *((uint32_t *)&pixel[4 * i]);
+        }
+
+        TIFF *tif = TIFFOpenW(image_file.native().c_str(), "wl");
+        if (tif != nullptr)
+        {
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(1024 * 1024 * 1, pixels.size()));
+
+            // 256 - 259
+            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
+            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint16_t>(height));
+            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, (uint16_t)8);
+            TIFFSetField(tif, TIFFTAG_COMPRESSION, (uint16_t)COMPRESSION_CCITTRLE);
+
+            // 262
+            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, (uint16_t)PHOTOMETRIC_RGB);
+
+            // 266
+            TIFFSetField(tif, TIFFTAG_FILLORDER, (uint16_t)FILLORDER_MSB2LSB);
+
+            // 274
+            TIFFSetField(tif, TIFFTAG_ORIENTATION, (uint16_t)ORIENTATION_TOPLEFT);
+
+            // 277 - 278
+            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, static_cast<uint16_t>(channels));
+            TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, static_cast<uint16_t>(height));
+
+            // 284
+            TIFFSetField(tif, TIFFTAG_PLANARCONFIG, (uint16_t)PLANARCONFIG_CONTIG);
+
+            // 296
+            TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, (uint16_t)RESUNIT_NONE);
+
+            // 305
+            TIFFSetField(tif, TIFFTAG_SOFTWARE, "ReShade Screenshot Add-on");
+
+            // 306
+            const time_t timestamp = std::chrono::system_clock::to_time_t(frame_time);
+            if (tm utc; _gmtime64_s(&utc, &timestamp) == 0)
+                tif_ec = TIFFSetField(tif, TIFFTAG_DATETIME, std::format("%04d:%02d:%02d %02d:%02d:%02d", 1900 + utc.tm_year, 1 + utc.tm_mon, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec).c_str());
+
+            // 317
+            TIFFSetField(tif, TIFFTAG_PREDICTOR, (uint16_t)PREDICTOR_HORIZONTAL);
+
+            // 338
+            if (channels == 4)
+            {
+                uint16_t v[1] = { (uint16_t)EXTRASAMPLE_UNASSALPHA };
+                TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, (uint16_t)1, v);
+            }
+
+            // 339
+            TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_UINT);
+
+            ptrdiff_t row_strip_length = channels * width;
+            uint8_t *buf = pixels.data();
+            for (size_t row = 0; row < height; ++row, buf += row_strip_length)
+                TIFFWriteScanline(tif, buf, row, row_strip_length);
+
+            if (tif)
+                TIFFClose(tif);
         }
     }
 

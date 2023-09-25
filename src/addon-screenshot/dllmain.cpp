@@ -155,9 +155,9 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
         auto get_texture_data = [runtime, device](reshade::api::resource resource, reshade::api::resource_usage state, std::vector<uint8_t> &texture_data, reshade::api::format &texture_format) -> bool
             {
                 const reshade::api::resource_desc desc = device->get_resource_desc(resource);
-                const reshade::api::format view_format = reshade::api::format_to_default_typed(desc.texture.format, 0);
+                texture_format = reshade::api::format_to_default_typed(desc.texture.format, 0);
 
-                if (view_format != reshade::api::format::r16_unorm)
+                if (texture_format != reshade::api::format::r32_float)
                 {
                     reshade::log_message(reshade::log_level::error, std::format("Screenshots are not supported for format %u !", desc.texture.format).c_str());
                     return false;
@@ -165,7 +165,7 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
 
                 // Copy back buffer data into system memory buffer
                 reshade::api::resource intermediate;
-                if (!device->create_resource(reshade::api::resource_desc(desc.texture.width, desc.texture.height, 1, 1, view_format, 1, reshade::api::memory_heap::gpu_to_cpu, reshade::api::resource_usage::copy_dest), nullptr, reshade::api::resource_usage::copy_dest, &intermediate))
+                if (!device->create_resource(reshade::api::resource_desc(desc.texture.width, desc.texture.height, 1, 1, texture_format, 1, reshade::api::memory_heap::gpu_to_cpu, reshade::api::resource_usage::copy_dest), nullptr, reshade::api::resource_usage::copy_dest, &intermediate))
                 {
                     reshade::log_message(reshade::log_level::error, "Failed to create system memory texture for screenshot capture!");
                     return false;
@@ -187,8 +187,8 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
                 if (device->map_texture_region(intermediate, 0, nullptr, reshade::api::map_access::read_only, &mapped_data))
                 {
                     const uint8_t *mapped_pixels = static_cast<const uint8_t *>(mapped_data.data);
-                    const uint32_t pixels_row_pitch = 2 * desc.texture.width;
-                    texture_data.resize(2U * desc.texture.width * desc.texture.height);
+                    const uint32_t pixels_row_pitch = 4u * desc.texture.width;
+                    texture_data.resize(4ull * desc.texture.width * desc.texture.height);
                     uint8_t *pixels = texture_data.data();
 
                     for (uint32_t y = 0; y < desc.texture.height; ++y, pixels += pixels_row_pitch, mapped_pixels += mapped_data.row_pitch)
@@ -379,8 +379,23 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         ImGui::TextUnformatted("Some errors occurred. Check the log for more details.");
         ImGui::PopStyleColor();
     }
+    if (ctx.is_screenshot_frame(screenshot_kind::after) &&
+        !runtime->get_effects_state())
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_YELLOW);
+        ImGui::TextUnformatted("[WARNING] Skipping  \"After\" capture because effects are disabled.");
+        ImGui::PopStyleColor();
+    }
     if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
-        ctx.screenshotdepth_technique.handle != 0)
+        !runtime->get_effects_state())
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_YELLOW);
+        ImGui::TextUnformatted("[WARNING] Skipping  \"Depth\" capture because effects are disabled.");
+        ImGui::PopStyleColor();
+    }
+    if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
+        runtime->get_effects_state() &&
+        ctx.screenshotdepth_technique.handle == 0)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
         ImGui::TextUnformatted("[BUGCHECK] \"Depth\" capture cannot be performed.");
@@ -480,6 +495,8 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     "[libpng] 32-bit PNG\0"
                     "[fpng] 24-bit PNG\0"
                     "[fpng] 32-bit PNG\0"
+                    "[libtiff] 24-bit TIFF\0"
+                    "[libtiff] 32-bit TIFF\0"
                 );
                 if (ImGui::DragInt("Repeat count", reinterpret_cast<int *>(&screenshot_myset.repeat_count), 1.0f, 0, 0, screenshot_myset.repeat_count == 0 ? "infinity" : "%d"))
                 {

@@ -1,9 +1,14 @@
+#ifdef RESHADE_DEPTH_LINEARIZATION_FAR_PLANE
+#undef RESHADE_DEPTH_LINEARIZATION_FAR_PLANE
+#define RESHADE_DEPTH_LINEARIZATION_FAR_PLANE 1
+#endif
+
 #include "ReShade.fxh"
 
 texture2D __Addon_Texture_ScreenshotDepth_Seri14
 {
     Width = BUFFER_WIDTH; Height = BUFFER_HEIGHT;
-    Format = R16;
+    Format = R32F;
 };
 
 float PS_Addon_ScreenshotDepth_Seri14(in float4 position : SV_Position, in float2 texcoord : TEXCOORD) : SV_Target
