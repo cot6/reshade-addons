@@ -55,6 +55,8 @@ END
 // RCDATA
 //
 
+IDR_SCREENSHOTDEPTH_FX  RCDATA                  "res\\__Addon_ScreenshotDepth_Seri14.fx"
+
 #endif    // Neutral (Default) resources
 /////////////////////////////////////////////////////////////////////////////
 

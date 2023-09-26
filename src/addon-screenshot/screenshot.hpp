@@ -12,7 +12,6 @@
 
 #include <chrono>
 #include <filesystem>
-#include <queue>
 #include <thread>
 #include <list>
 #include <vector>
@@ -24,6 +23,7 @@ enum screenshot_kind
     before,
     after,
     overlay,
+    depth,
 };
 
 class screenshot_state
@@ -51,6 +51,7 @@ public:
     std::filesystem::path before_image;
     std::filesystem::path after_image;
     std::filesystem::path overlay_image;
+    std::filesystem::path depth_image;
 
     std::list<std::pair<std::string, std::filesystem::path>> technique_images;
 
@@ -75,6 +76,8 @@ public:
                 return !(after_image.empty() || after_image.native().front() == L'-');
             case screenshot_kind::overlay:
                 return !(overlay_image.empty() || overlay_image.native().front() == L'-');
+            case screenshot_kind::depth:
+                return !(depth_image.empty() || depth_image.native().front() == L'-');
             default:
                 return false;
         }
@@ -104,6 +107,7 @@ class screenshot_environment
 public:
     const unsigned int thread_hardware_concurrency = std::thread::hardware_concurrency();
 
+    std::filesystem::path addon_private_path;
     std::filesystem::path reshade_base_path;
     std::filesystem::path reshade_executable_path;
     std::filesystem::path reshade_preset_path;
@@ -119,6 +123,7 @@ public:
     }
 
     void load(reshade::api::effect_runtime *runtime);
+    void init();
 };
 
 class screenshot
@@ -151,8 +156,20 @@ public:
     {
         frame_time = std::chrono::system_clock::now();
         runtime->get_screenshot_width_and_height(&width, &height);
-        pixels.resize(width * height * 4);
-        runtime->capture_screenshot(pixels.data());
+
+        switch (kind)
+        {
+            case screenshot_kind::original:
+            case screenshot_kind::before:
+            case screenshot_kind::after:
+            case screenshot_kind::overlay:
+                pixels.resize(width * height * 4);
+                runtime->capture_screenshot(pixels.data());
+                break;
+            default:
+            case screenshot_kind::depth:
+                break;
+        }
     }
 
     void save();

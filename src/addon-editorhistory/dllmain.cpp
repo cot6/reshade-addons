@@ -133,7 +133,8 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
 }
 static bool on_set_technique_state(reshade::api::effect_runtime *runtime, reshade::api::effect_technique technique, bool enabled)
 {
-    if (runtime->get_annotation_int_from_technique(technique, "enabled", nullptr, 0) ||
+    if (runtime->get_annotation_int_from_technique(technique, "hidden", nullptr, 0) ||
+        runtime->get_annotation_int_from_technique(technique, "enabled", nullptr, 0) ||
         runtime->get_annotation_int_from_technique(technique, "enabled_in_screenshot", nullptr, 0) ||
         runtime->get_annotation_int_from_technique(technique, "timeout", nullptr, 0))
         return false;

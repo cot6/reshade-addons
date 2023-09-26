@@ -6,13 +6,17 @@
 
 #pragma once
 
+#include "dll_resources.hpp"
+
 #include "runtime_config.hpp"
 #include "screenshot.hpp"
 
-#include <png.h>
-#include <zlib.h>
+#include <time.h>
 
 #include <fpng.h>
+#include <png.h>
+#include <tiffio.h>
+#include <zlib.h>
 
 #include <functional>
 #include <list>
@@ -72,6 +76,8 @@ void screenshot_myset::load(const ini_file &config)
         original_image.clear();
     if (!config.get(section.c_str(), "OverlayImage", overlay_image))
         overlay_image.clear();
+    if (!config.get(section.c_str(), "DepthImage", depth_image))
+        depth_image.clear();
     if (!config.get(section.c_str(), "RepeatCount", repeat_count))
         repeat_count = 1;
     if (!config.get(section.c_str(), "RepeatWait", repeat_wait))
@@ -89,6 +95,7 @@ void screenshot_myset::save(ini_file &config) const
     config.set(section.c_str(), "KeyScreenshot", screenshot_key_data);
     config.set(section.c_str(), "OriginalImage", original_image);
     config.set(section.c_str(), "OverlayImage", overlay_image);
+    config.set(section.c_str(), "DepthImage", depth_image);
     config.set(section.c_str(), "RepeatCount", repeat_count);
     config.set(section.c_str(), "RepeatWait", repeat_wait);
     config.set(section.c_str(), "WorkerThreads", worker_threads);
@@ -102,7 +109,13 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
         char as_char[SIZE / sizeof(char)];
         wchar_t as_wchar[SIZE / sizeof(wchar_t)];
     } buf{};
+    std::error_code ec{};
     size_t size;
+
+    size = ExpandEnvironmentStringsW(L"%ALLUSERSPROFILE%", buf.as_wchar, ARRAYSIZE(buf.as_wchar));
+    addon_private_path = std::wstring(buf.as_wchar, size > 0 ? size - 1 : 0);
+    addon_private_path = addon_private_path / L"ReShade Addons" / L"Seri" / L"Screenshot" / L"reshade-shaders" / L"Shaders";
+    std::filesystem::create_directories(addon_private_path, ec);
 
     if (size = ARRAYSIZE(buf.as_char), reshade::get_reshade_base_path(buf.as_char, &size); size != 0)
         reshade_base_path = std::filesystem::u8path(std::string(buf.as_char, size));
@@ -114,12 +127,89 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
     else
         reshade_executable_path.clear();
 
-    if (size = ARRAYSIZE(buf.as_char), runtime->get_current_preset_path(buf.as_char, &size); size)
-        reshade_preset_path = std::filesystem::u8path(std::string(buf.as_char, size));
-    else
-        reshade_preset_path.clear();
+    if (runtime != nullptr)
+    {
+        if (size = ARRAYSIZE(buf.as_char), runtime->get_current_preset_path(buf.as_char, &size); size)
+            reshade_preset_path = std::filesystem::u8path(std::string(buf.as_char, size));
+        else
+            reshade_preset_path.clear();
+    }
 
     addon_screenshot_config_path = reshade_base_path / L"ReShade_Add-On_Screenshot.ini";
+}
+void screenshot_environment::init()
+{
+    std::error_code ec{};
+    if (std::filesystem::create_directories(addon_private_path, ec); ec.value() == 0)
+    {
+        const std::filesystem::path copy_to = addon_private_path / L"__Addon_ScreenshotDepth_Seri14.fx";
+        if (std::filesystem::path copy_from = addon_private_path / L"__Addon_ScreenshotDepth_Seri14.fxgen";
+            std::filesystem::exists(copy_from))
+        {
+            std::filesystem::copy_file(copy_from, copy_to, std::filesystem::copy_options::overwrite_existing, ec);
+        }
+        else
+        {
+            const reshade::resources::data_resource resource = reshade::resources::load_data_resource(IDR_SCREENSHOTDEPTH_FX);
+
+            enum class condition { none, open, create, blocked };
+            auto condition = condition::none;
+
+            const HANDLE file = CreateFileW(copy_to.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+
+            if (file == INVALID_HANDLE_VALUE)
+                condition = condition::blocked;
+            else if (GetLastError() == ERROR_ALREADY_EXISTS)
+                condition = condition::open;
+            else
+                condition = condition::create;
+
+            if (condition == condition::open || condition == condition::create)
+            {
+                if (DWORD _; WriteFile(file, resource.data, static_cast<DWORD>(resource.data_size), &_, NULL) != 0)
+                    SetEndOfFile(file);
+            }
+
+            if (file != INVALID_HANDLE_VALUE)
+                CloseHandle(file);
+        }
+    }
+
+    auto try_update_config = [this](const std::filesystem::path &file, bool force = false) -> bool
+        {
+            ini_file config(file);
+
+            if (!force && !config.has("GENERAL", "EffectSearchPaths"))
+                return false;
+
+            std::vector<std::filesystem::path> effect_search_paths;
+            config.get("GENERAL", "EffectSearchPaths", effect_search_paths);
+
+            if (std::find_if(effect_search_paths.cbegin(), effect_search_paths.cend(),
+                [this](const std::filesystem::path &path) { std::error_code ec; return std::filesystem::equivalent(path, addon_private_path, ec); }) == effect_search_paths.cend())
+            {
+                effect_search_paths.push_back(addon_private_path);
+                config.set("GENERAL", "EffectSearchPaths", effect_search_paths);
+                config.flush_cache();
+
+                return true;
+            }
+
+            return false;
+        };
+
+    bool updated = false;
+    for (const std::filesystem::path &file : std::filesystem::directory_iterator(reshade_base_path, std::filesystem::directory_options::skip_permission_denied, ec))
+    {
+        if (file.extension() != ".ini")
+            continue;
+        if (!try_update_config(file))
+            continue;
+
+        updated = true;
+    }
+    if (!updated)
+        try_update_config(reshade_base_path / L"ReShade.ini", true);
 }
 
 void screenshot::save()
@@ -141,6 +231,9 @@ void screenshot::save()
         case screenshot_kind::overlay:
             image_file = myset.overlay_image;
             break;
+        case screenshot_kind::depth:
+            image_file = myset.depth_image;
+            break;
         default:
             reshade::log_message(reshade::log_level::debug, std::format("Unknown screenshot kind: %d", kind).c_str());
             return;
@@ -152,7 +245,69 @@ void screenshot::save()
     if (image_file.has_parent_path())
         std::filesystem::create_directory(image_file.parent_path(), ec);
 
-    if (myset.image_format == 0 || myset.image_format == 1)
+    if (kind == screenshot_kind::depth)
+    {
+        int tif_ec = 0;
+        image_file.replace_extension() += L".tiff";
+
+        if (TIFF *tif = TIFFOpenW(image_file.native().c_str(), "wl");
+            tif != nullptr)
+        {
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(1024 * 256, pixels.size()));
+
+            // 256 - 259
+            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
+            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint16_t>(height));
+            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, (uint16_t)32);
+            TIFFSetField(tif, TIFFTAG_COMPRESSION, (uint16_t)COMPRESSION_LZW);
+
+            // 262
+            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, (uint16_t)PHOTOMETRIC_MINISBLACK);
+
+            // 263
+            TIFFSetField(tif, TIFFTAG_THRESHHOLDING, (uint16_t)THRESHHOLD_BILEVEL);
+
+            // 266
+            TIFFSetField(tif, TIFFTAG_FILLORDER, (uint16_t)FILLORDER_MSB2LSB);
+
+            // 274
+            TIFFSetField(tif, TIFFTAG_ORIENTATION, (uint16_t)ORIENTATION_TOPLEFT);
+
+            // 277 - 278
+            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, (uint16_t)1);
+            TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, static_cast<uint16_t>(height));
+
+            // 282-284
+            TIFFSetField(tif, TIFFTAG_XRESOLUTION, (uint16_t)96);
+            TIFFSetField(tif, TIFFTAG_YRESOLUTION, (uint16_t)96);
+            TIFFSetField(tif, TIFFTAG_PLANARCONFIG, (uint16_t)PLANARCONFIG_CONTIG);
+
+            // 296
+            TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, (uint16_t)RESUNIT_INCH);
+
+            // 305
+            TIFFSetField(tif, TIFFTAG_SOFTWARE, "ReShade Screenshot Add-on");
+
+            // 306
+            const time_t timestamp = std::chrono::system_clock::to_time_t(frame_time);
+            if (tm utc; _gmtime64_s(&utc, &timestamp) == 0)
+                tif_ec = TIFFSetField(tif, TIFFTAG_DATETIME, std::format("%04d:%02d:%02d %02d:%02d:%02d", 1900 + utc.tm_year, 1 + utc.tm_mon, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec).c_str());
+
+            // 317
+            TIFFSetField(tif, TIFFTAG_PREDICTOR, (uint16_t)PREDICTOR_FLOATINGPOINT);
+
+            // 339
+            TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_IEEEFP);
+
+            const size_t row_strip_length = static_cast<size_t>(4) * width;
+            uint8_t *buf = pixels.data();
+            for (uint32_t row = 0; row < height; ++row, buf += row_strip_length)
+                TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));
+
+            TIFFClose(tif);
+        }
+    }
+    else if (myset.image_format == 0 || myset.image_format == 1)
     {
         image_file.replace_extension() += L".png";
 
@@ -177,7 +332,7 @@ void screenshot::save()
             if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
                 write_ptr != nullptr)
             {
-                setvbuf(file, nullptr, _IOFBF, 1024 * 512);
+                setvbuf(file, nullptr, _IOFBF, 1024 * 768);
 
                 png_init_io(write_ptr, file);
                 png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, PNG_ALL_FILTERS);
@@ -222,7 +377,7 @@ void screenshot::save()
             state.error_occurs++;
         }
     }
-    if (myset.image_format == 2 || myset.image_format == 3)
+    else if (myset.image_format == 2 || myset.image_format == 3)
     {
         image_file.replace_extension() += L".png";
 
@@ -264,6 +419,83 @@ void screenshot::save()
         else
         {
             reshade::log_message(reshade::log_level::error, "Failed to save screenshot: fpng_encode_image_to_memory()");
+        }
+    }
+    else if (myset.image_format == 4 || myset.image_format == 5)
+    {
+        int tif_ec = 0;
+        image_file.replace_extension() += L".tiff";
+
+        const size_t channels = myset.image_format == 4 ? 3 : 4;
+        const size_t size = static_cast<size_t>(width) * height;
+
+        uint8_t *const pixel = pixels.data();
+        if (channels == 3)
+        {
+            for (size_t i = 0; i < size; i++)
+                *((uint32_t *)&pixel[3 * i]) =
+                *((uint32_t *)&pixel[4 * i]);
+        }
+
+        if (TIFF *tif = TIFFOpenW(image_file.native().c_str(), "wl");
+            tif != nullptr)
+        {
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(1024 * 768, pixels.size()));
+
+            // 256 - 259
+            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
+            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint16_t>(height));
+            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, (uint16_t)8);
+            TIFFSetField(tif, TIFFTAG_COMPRESSION, (uint16_t)COMPRESSION_LZW);
+
+            // 262
+            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, (uint16_t)PHOTOMETRIC_RGB);
+
+            // 266
+            TIFFSetField(tif, TIFFTAG_FILLORDER, (uint16_t)FILLORDER_MSB2LSB);
+
+            // 274
+            TIFFSetField(tif, TIFFTAG_ORIENTATION, (uint16_t)ORIENTATION_TOPLEFT);
+
+            // 277 - 278
+            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, static_cast<uint16_t>(channels));
+            TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, static_cast<uint16_t>(height));
+
+            // 282-284
+            TIFFSetField(tif, TIFFTAG_XRESOLUTION, (uint16_t)96);
+            TIFFSetField(tif, TIFFTAG_YRESOLUTION, (uint16_t)96);
+            TIFFSetField(tif, TIFFTAG_PLANARCONFIG, (uint16_t)PLANARCONFIG_CONTIG);
+
+            // 296
+            TIFFSetField(tif, TIFFTAG_RESOLUTIONUNIT, (uint16_t)RESUNIT_INCH);
+
+            // 305
+            TIFFSetField(tif, TIFFTAG_SOFTWARE, "ReShade Screenshot Add-on");
+
+            // 306
+            const time_t timestamp = std::chrono::system_clock::to_time_t(frame_time);
+            if (tm utc; _gmtime64_s(&utc, &timestamp) == 0)
+                tif_ec = TIFFSetField(tif, TIFFTAG_DATETIME, std::format("%04d:%02d:%02d %02d:%02d:%02d", 1900 + utc.tm_year, 1 + utc.tm_mon, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec).c_str());
+
+            // 317
+            TIFFSetField(tif, TIFFTAG_PREDICTOR, (uint16_t)PREDICTOR_HORIZONTAL);
+
+            // 338
+            if (channels == 4)
+            {
+                uint16_t v[1] = { (uint16_t)EXTRASAMPLE_UNASSALPHA };
+                TIFFSetField(tif, TIFFTAG_EXTRASAMPLES, (uint16_t)1, v);
+            }
+
+            // 339
+            TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_UINT);
+
+            const size_t row_strip_length = channels * width;
+            uint8_t *buf = pixels.data();
+            for (uint32_t row = 0; row < height; ++row, buf += row_strip_length)
+                TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));
+
+            TIFFClose(tif);
         }
     }
 
