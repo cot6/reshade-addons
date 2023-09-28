@@ -24,14 +24,6 @@
     <ProjectGuid>{FDDD2A2D-8AB0-4C67-8717-5BFC6D671E2B}</ProjectGuid>
     <ProjectName>addon-uibind</ProjectName>
     <VCProjectVersion>15.0</VCProjectVersion>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
-    <WindowsTargetPlatformVersion Condition="'$(VisualStudioVersion)'&gt;='16.0'">10.0</WindowsTargetPlatformVersion>
-  </PropertyGroup>
-  <PropertyGroup Label="Configuration">
-    <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset Condition="'$(VisualStudioVersion)'=='15.0'">v141</PlatformToolset>
-    <PlatformToolset Condition="'$(VisualStudioVersion)'=='16.0'">v142</PlatformToolset>
-    <PlatformToolset Condition="'$(VisualStudioVersion)'=='17.0'">v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)'=='Debug'">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -53,56 +45,25 @@
     <TargetName>ReShade64-UIBind-By-seri14</TargetName>
     <TargetExt>.addon64</TargetExt>
   </PropertyGroup>
-  <PropertyGroup>
-    <IntDir>$(ProjectDir)..\..\intermediate\$(ProjectName)\$(Configuration)\$(Platform)\</IntDir>
-    <OutDir>$(ProjectDir)..\..\bin\$(ProjectName)\$(Configuration)\$(Platform)\</OutDir>
-  </PropertyGroup>
   <ItemDefinitionGroup>
-    <BuildLog>
-      <Path>$(ProjectDir)..\..\bin\$(ProjectName)\$(Configuration)\$(Platform)\$(TargetName).log</Path>
-    </BuildLog>
     <ClCompile>
-      <ConformanceMode>true</ConformanceMode>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;ImTextureID=ImU64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <WarningLevel>Level4</WarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
     </Link>
-    <ResourceCompile>
-      <PreprocessorDefinitions Condition="'$(Platform)'=='Win32'">_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Platform)'=='x64'">_WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)'=='Release'">NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ResourceCompile>
     <PreBuildEvent>
       <Command>"pwsh.exe" "-File" "$(ProjectDir)..\..\tools\verbuild.ps1"</Command>
       <Message>開発環境からメタ情報を取得し、バージョン情報 version.h を作成します。</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
-    <ClCompile>
-      <Optimization>Disabled</Optimization>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-    </ClCompile>
-    <Link>
-      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-    </Link>
     <PostBuildEvent>
       <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App\" /Y /Q</Command>
       <Message>ビルドしたアドオン ファイルをReShadeのデバッグ アプリケーション フォルダに配置します。</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
-    <ClCompile>
-      <Optimization>MaxSpeed</Optimization>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-    </ClCompile>
-    <Link>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
-    </Link>
     <PostBuildEvent>
       <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\$(ProjectName)\bin\" /Y /Q</Command>
       <Message>ビルドしたアドオン ファイルをデプロイ ソース フォルダに配置します。</Message>
