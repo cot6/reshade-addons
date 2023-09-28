@@ -94,9 +94,15 @@ public:
     enum : unsigned int
     {
         hidden = 0,
-        always,
-        while_myset_is_active,
-    } show_osd = hidden;
+        show_osd_always,
+        show_osd_while_myset_is_active,
+    } show_osd = show_osd_while_myset_is_active;
+    enum : unsigned int
+    {
+        ignore = 0,
+        turn_on_while_myset_is_active,
+        turn_on_when_activate_myset,
+    } turn_on_effects = ignore;
 
     void load(const ini_file &config);
     void save(ini_file &config, bool header_only = false);

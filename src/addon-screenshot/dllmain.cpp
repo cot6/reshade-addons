@@ -34,13 +34,17 @@ inline bool screenshot_context::is_screenshot_active() const noexcept
 
     return true;
 }
+inline bool screenshot_context::is_screenshot_enable(screenshot_kind kind) const noexcept
+{
+    return active_screenshot != nullptr && active_screenshot->is_enable(kind);
+}
 inline bool screenshot_context::is_screenshot_frame() const noexcept
 {
     if (active_screenshot == nullptr)
         return false;
     if (active_screenshot->repeat_count != 0 && active_screenshot->repeat_count <= screenshot_repeat_index)
         return false;
-    if (active_screenshot->repeat_wait != 0 && (screenshot_current_frame - screenshot_begin_frame) % active_screenshot->repeat_wait)
+    if (active_screenshot->repeat_wait != 0 && std::max(0LL, screenshot_current_frame - screenshot_begin_frame) % active_screenshot->repeat_wait)
         return false;
 
     return true;
@@ -95,6 +99,11 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
         if (runtime->get_technique_state(ctx.screenshotdepth_technique) != enabled)
             runtime->set_technique_state(ctx.screenshotdepth_technique, enabled);
     }
+
+    if (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_while_myset_is_active &&
+        ctx.is_screenshot_frame(screenshot_kind::after) &&
+        !runtime->get_effects_state())
+        runtime->set_effects_state(true);
 }
 static void on_reloaded_effects(reshade::api::effect_runtime *runtime)
 {
@@ -261,11 +270,16 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
     if (ctx.active_screenshot != nullptr && ctx.active_screenshot->repeat_count != 0 && ctx.active_screenshot->repeat_count <= ctx.screenshot_repeat_index)
     {
-        ctx.active_screenshot = nullptr;
-
         if (ctx.screenshotdepth_technique.handle != 0 &&
             runtime->get_technique_state(ctx.screenshotdepth_technique) != false)
             runtime->set_technique_state(ctx.screenshotdepth_technique, false);
+
+        if (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_while_myset_is_active && !ctx.before_screenshot_enable_effects &&
+            ctx.is_screenshot_enable(screenshot_kind::after) &&
+            runtime->get_effects_state())
+            runtime->set_effects_state(false);
+
+        ctx.active_screenshot = nullptr;
     }
 
     if (!ctx.ignore_shortcuts)
@@ -290,22 +304,29 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                 else
                 {
                     ctx.screenshot_state.reset();
-
                     ctx.active_screenshot = &screenshot_myset;
+
+                    ctx.before_screenshot_enable_effects = runtime->get_effects_state();
                     ctx.screenshot_begin_frame = ctx.screenshot_current_frame + 1;
                     ctx.screenshot_repeat_index = 0;
+
                     if (screenshot_myset.worker_threads != 0)
                         ctx.screenshot_worker_threads = screenshot_myset.worker_threads;
                     else
                         ctx.screenshot_worker_threads = ctx.environment.thread_hardware_concurrency;
 
-                    if (ctx.active_screenshot->is_enable(screenshot_kind::depth) &&
+                    if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
                         ctx.screenshotdepth_technique.handle == 0)
                         ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.fx", "__Addon_Technique_ScreenshotDepth_Seri14");
 
                     if (ctx.screenshotdepth_technique.handle != 0 &&
                         runtime->get_technique_state(ctx.screenshotdepth_technique) == false)
                         runtime->set_technique_state(ctx.screenshotdepth_technique, true);
+
+                    if ((ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
+                        ctx.is_screenshot_enable(screenshot_kind::after) &&
+                        !runtime->get_effects_state())
+                        runtime->set_effects_state(true);
 
                     break;
                 }
@@ -334,9 +355,9 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     {
         case decltype(screenshot_config::show_osd)::hidden:
             return;
-        case decltype(screenshot_config::show_osd)::always:
+        case decltype(screenshot_config::show_osd)::show_osd_always:
             break;
-        case decltype(screenshot_config::show_osd)::while_myset_is_active:
+        case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active:
             if (ctx.active_screenshot == nullptr)
                 return;
             break;
@@ -378,21 +399,23 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         ImGui::TextUnformatted("Some errors occurred. Check the log for more details.");
         ImGui::PopStyleColor();
     }
-    if ((ctx.is_screenshot_frame(screenshot_kind::before) || ctx.is_screenshot_frame(screenshot_kind::after)) &&
+    if ((ctx.is_screenshot_enable(screenshot_kind::before) || ctx.is_screenshot_enable(screenshot_kind::after)) &&
+        (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
         !runtime->get_effects_state())
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_YELLOW);
         ImGui::TextUnformatted("[WARNING] Skipping  \"Before\" and \"After\" captures because effects are disabled.");
         ImGui::PopStyleColor();
     }
-    if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
+    if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
+        (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
         !runtime->get_effects_state())
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_YELLOW);
         ImGui::TextUnformatted("[WARNING] Skipping  \"Depth\" capture because effects are disabled.");
         ImGui::PopStyleColor();
     }
-    if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
+    if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
         runtime->get_effects_state() &&
         ctx.screenshotdepth_technique.handle == 0)
     {
@@ -417,9 +440,10 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
             techniques.emplace_back(technique_name, technique);
         });
 
-    if (ImGui::CollapsingHeader("Screenshot [seri14's Add-On]", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Screenshot Add-On [by seri14]", ImGuiTreeNodeFlags_DefaultOpen))
     {
         modified |= ImGui::Combo("Show OSD", reinterpret_cast<int *>(&ctx.config.show_osd), "Hidden\0Always\0While myset is active\0");
+        modified |= ImGui::Combo("Turn On Effects", reinterpret_cast<int *>(&ctx.config.turn_on_effects), "Ignore\0While myset is active\0When activate myset\0");
 
         char buf[4096] = "";
 

@@ -29,7 +29,9 @@ void screenshot_config::load(const ini_file &config)
     if (!config.get("SCREENSHOT", "PresetNames", preset_names))
         preset_names.clear();
     if (!config.get("OVERLAY", "ShowOSD", reinterpret_cast<unsigned int &>(show_osd)))
-        show_osd = decltype(show_osd)::while_myset_is_active;
+        show_osd = decltype(show_osd)::show_osd_while_myset_is_active;
+    if (!config.get("SCREENSHOT", "TurnOnEffects", reinterpret_cast<unsigned int &>(turn_on_effects)))
+        turn_on_effects = decltype(turn_on_effects)::ignore;
 
     for (size_t seek = 0; seek < preset_names.size();)
     {
@@ -58,6 +60,7 @@ void screenshot_config::save(ini_file &config, bool header_only)
 
     config.set("SCREENSHOT", "PresetNames", preset_names);
     config.set("OVERLAY", "ShowOSD", static_cast<unsigned int>(show_osd));
+    config.set("SCREENSHOT", "TurnOnEffects", static_cast<unsigned int>(turn_on_effects));
 }
 
 void screenshot_myset::load(const ini_file &config)

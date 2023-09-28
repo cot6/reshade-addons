@@ -28,8 +28,8 @@ public:
     screenshot_myset *active_screenshot = nullptr;
     screenshot_state screenshot_state;
 
-    uint64_t screenshot_begin_frame = std::numeric_limits<decltype(screenshot_begin_frame)>::max();
-    uint64_t screenshot_current_frame = 0;
+    int64_t screenshot_begin_frame = std::numeric_limits<decltype(screenshot_begin_frame)>::max();
+    int64_t screenshot_current_frame = 0;
     unsigned int screenshot_repeat_index = 0;
     unsigned int screenshot_total_count = 0;
 
@@ -38,10 +38,12 @@ public:
     size_t screenshot_worker_threads = 0;
 
     bool ignore_shortcuts = false;
+    bool before_screenshot_enable_effects = false;
 
     void save();
 
     inline bool is_screenshot_active() const noexcept;
+    inline bool is_screenshot_enable(screenshot_kind kind) const noexcept;
     inline bool is_screenshot_frame() const noexcept;
     inline bool is_screenshot_frame(screenshot_kind kind) const noexcept;
 
