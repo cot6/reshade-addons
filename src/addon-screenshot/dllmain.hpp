@@ -28,10 +28,9 @@ public:
     screenshot_myset *active_screenshot = nullptr;
     screenshot_state screenshot_state;
 
-    int64_t screenshot_begin_frame = std::numeric_limits<decltype(screenshot_begin_frame)>::max();
-    int64_t screenshot_current_frame = 0;
+    uint64_t screenshot_begin_frame = std::numeric_limits<decltype(screenshot_begin_frame)>::max();
+    uint64_t screenshot_current_frame = 0;
     unsigned int screenshot_repeat_index = 0;
-    unsigned int screenshot_total_count = 0;
 
     std::list<screenshot> screenshots;
     std::atomic<size_t> screenshot_active_threads;

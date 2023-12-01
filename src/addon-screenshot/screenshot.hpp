@@ -169,7 +169,7 @@ public:
             case screenshot_kind::before:
             case screenshot_kind::after:
             case screenshot_kind::overlay:
-                pixels.resize(width * height * 4);
+                pixels.resize(static_cast<size_t>(width) * height * 4);
                 runtime->capture_screenshot(pixels.data());
                 break;
             default:

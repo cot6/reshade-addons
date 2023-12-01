@@ -256,7 +256,7 @@ void screenshot::save()
         if (TIFF *tif = TIFFOpenW(image_file.native().c_str(), "wl");
             tif != nullptr)
         {
-            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(1024 * 256, pixels.size()));
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(1024 * 256), pixels.size()));
 
             // 256 - 259
             TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
@@ -318,8 +318,8 @@ void screenshot::save()
         if (errno_t fopen_error = _wfopen_s(&file, image_file.native().c_str(), L"wb");
             file != nullptr)
         {
-            const size_t channels = myset.image_format == 0 ? 3 : 4;
-            const size_t size = static_cast<size_t>(width) * height;
+            const unsigned int channels = myset.image_format == 0 ? 3 : 4;
+            const unsigned int size = width * height;
 
             uint8_t *const pixel = pixels.data();
             if (channels == 3)
@@ -335,7 +335,7 @@ void screenshot::save()
             if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
                 write_ptr != nullptr)
             {
-                setvbuf(file, nullptr, _IOFBF, 1024 * 768);
+                setvbuf(file, nullptr, _IOFBF, static_cast<size_t>(1024 * 768));
 
                 png_init_io(write_ptr, file);
                 png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, PNG_ALL_FILTERS);
@@ -359,7 +359,7 @@ void screenshot::save()
 
                     std::vector<png_bytep> rows(height);
                     for (size_t y = 0; y < height; y++)
-                        rows[y] = pixel + channels * width * y;
+                        rows[y] = pixel + static_cast<size_t>(channels) * width * y;
                     png_write_image(write_ptr, rows.data());
 
                     png_write_end(write_ptr, info_ptr);
@@ -384,8 +384,8 @@ void screenshot::save()
     {
         image_file.replace_extension() += L".png";
 
-        const size_t channels = myset.image_format == 2 ? 3 : 4;
-        const size_t size = static_cast<size_t>(width) * height;
+        const unsigned int channels = myset.image_format == 2 ? 3 : 4;
+        const unsigned int size = width * height;
 
         uint8_t *const pixel = pixels.data();
         if (channels == 3)
@@ -396,7 +396,7 @@ void screenshot::save()
         }
 
         if (std::vector<uint8_t> encoded_pixels;
-            fpng::fpng_encode_image_to_memory(pixels.data(), width, height, static_cast<uint32_t>(channels), encoded_pixels))
+            fpng::fpng_encode_image_to_memory(pixels.data(), width, height, channels, encoded_pixels))
         {
             enum class condition { none, open, create, blocked };
             auto condition = condition::none;
@@ -429,8 +429,8 @@ void screenshot::save()
         int tif_ec = 0;
         image_file.replace_extension() += L".tiff";
 
-        const size_t channels = myset.image_format == 4 ? 3 : 4;
-        const size_t size = static_cast<size_t>(width) * height;
+        const unsigned int channels = myset.image_format == 4 ? 3 : 4;
+        const unsigned int size = width * height;
 
         uint8_t *const pixel = pixels.data();
         if (channels == 3)
@@ -443,7 +443,7 @@ void screenshot::save()
         if (TIFF *tif = TIFFOpenW(image_file.native().c_str(), "wl");
             tif != nullptr)
         {
-            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(1024 * 768, pixels.size()));
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(1024 * 768), pixels.size()));
 
             // 256 - 259
             TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
@@ -493,7 +493,7 @@ void screenshot::save()
             // 339
             TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_UINT);
 
-            const size_t row_strip_length = channels * width;
+            const unsigned int row_strip_length = channels * width;
             uint8_t *buf = pixels.data();
             for (uint32_t row = 0; row < height; ++row, buf += row_strip_length)
                 TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));

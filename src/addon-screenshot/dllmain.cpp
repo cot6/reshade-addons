@@ -44,7 +44,7 @@ inline bool screenshot_context::is_screenshot_frame() const noexcept
         return false;
     if (active_screenshot->repeat_count != 0 && active_screenshot->repeat_count <= screenshot_repeat_index)
         return false;
-    if (active_screenshot->repeat_wait != 0 && std::max(0LL, screenshot_current_frame - screenshot_begin_frame) % active_screenshot->repeat_wait)
+    if (active_screenshot->repeat_wait != 0 && (screenshot_current_frame - screenshot_begin_frame) % active_screenshot->repeat_wait)
         return false;
 
     return true;
