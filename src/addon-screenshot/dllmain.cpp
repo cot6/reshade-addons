@@ -595,12 +595,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         reshade::register_event<reshade::addon_event::reshade_overlay>(on_reshade_overlay);
         reshade::register_event<reshade::addon_event::reshade_present>(on_reshade_present);
         reshade::register_overlay("OSD", draw_osd_window);
-        reshade::register_overlay("Settings", draw_setting_window);
+        reshade::register_overlay("Settings###settings", draw_setting_window);
     }
     else if (fdwReason == DLL_PROCESS_DETACH)
     {
         reshade::unregister_overlay("OSD", draw_osd_window);
-        reshade::unregister_overlay("Settings", draw_setting_window);
+        reshade::unregister_overlay("Settings###settings", draw_setting_window);
         reshade::unregister_addon(hModule);
 
         g_module_handle = nullptr;
