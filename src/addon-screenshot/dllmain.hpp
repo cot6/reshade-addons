@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,6 +16,7 @@
 #if !defined(_DEBUG) && ADDON_MAJOR < RESHADE_API_VERSION
 #error メジャー バージョンはAPI改訂番号と同一である必要があります。
 #endif
+constexpr uint8_t s_runtime_id[16] = { 0x02, 0x82, 0xFF, 0x77, /**/ 0xEC, 0x5B, /**/ 0xAD, 0x42, /**/ 0x8C, 0xE0, 0x39, 0x7F, 0x3E, 0x84, 0xEA, 0xA6 };
 
 class __declspec(uuid("a722aa89-f8e3-43f2-84f2-72fe0122b715")) screenshot_context
 {

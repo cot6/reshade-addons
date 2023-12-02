@@ -75,7 +75,10 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
 {
     ini_file::flush_cache();
 
-    reshade::api::effect_runtime *runtime = static_cast<reshade::api::effect_runtime *>(swapchain);
+    uint64_t effect_runtime; swapchain->get_private_data(s_runtime_id, &effect_runtime);
+    if (effect_runtime == 0)
+        return;
+    reshade::api::effect_runtime *runtime = reinterpret_cast<reshade::api::effect_runtime *>(effect_runtime);
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
 
@@ -214,8 +217,8 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
         if (reshade::api::effect_texture_variable texture = runtime->find_texture_variable("__Addon_ScreenshotDepth_Seri14.fx", "__Addon_Texture_ScreenshotDepth_Seri14");
             texture.handle != 0)
         {
-            reshade::api::resource_view rsv{};
-            runtime->get_texture_binding(texture, &rsv);
+            reshade::api::resource_view rsv{}, rsv_srgb{};
+            runtime->get_texture_binding(texture, &rsv, &rsv_srgb);
             if (reshade::api::resource resource = device->get_resource_from_view(rsv);
                 resource.handle != 0)
             {
