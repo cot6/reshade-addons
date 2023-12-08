@@ -1,5 +1,7 @@
-﻿// SPDX-FileCopyrightText: 2018 seri14
-// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * SPDX-FileCopyrightText: 2018 seri14
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 
 #pragma once
 #include "res\version.h"
