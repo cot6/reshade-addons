@@ -1,5 +1,7 @@
 // Microsoft Visual C++ generated resource script.
 //
+#pragma code_page(65001)
+
 #include "resource.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
@@ -66,6 +68,10 @@ END
 // Generated from the TEXTINCLUDE 3 resource.
 //
 #include "resource.rc2"
+#if defined(RESHADE_LOCALIZATION)
+#include "lang_en-US.rc2"
+#include "lang_ja-JP.rc2"
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED

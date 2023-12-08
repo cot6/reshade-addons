@@ -1,0 +1,26 @@
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE 9, 1
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+
+26291 "End of Undo"
+2694 "Variable %s True"
+43304 "Variable %s False"
+63540 "Technique %s Enable"
+24567 "Technique %s Disable"
+44720 "Sort technique list"
+21292 "History###editorhistory"
+
+END
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////

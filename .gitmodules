@@ -7,3 +7,7 @@
 [submodule "deps/fpng"]
 	path = deps/fpng
 	url = https://github.com/richgel999/fpng.git
+[submodule "deps/utfcpp"]
+	path = deps/utfcpp
+	url = https://github.com/nemtrif/utfcpp.git
+	fetchRecurseSubmodules = false

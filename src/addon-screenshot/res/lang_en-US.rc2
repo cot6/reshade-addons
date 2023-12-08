@@ -1,0 +1,48 @@
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE 9, 1
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+
+6257 "Active set: "
+48369 "%u of %u"
+63025 "%u times (Infinite mode)"
+18198 "%u shots in queue (%.3lf MiB)"
+50989 "Some errors occurred. Check the log for more details."
+33919 "[WARNING] Skipping ""Before"" and ""After"" captures because effects are disabled."
+32876 "[WARNING] Skipping ""Depth"" capture because effects are disabled."
+62199 "[BUGCHECK] ""Depth"" capture cannot be performed."
+37394 "Screenshot Add-On [by seri14]"
+52994 "Hidden\nAlways\nWhile myset is active\n"
+23185 "Ignore\nWhile myset is active\nWhen activate myset\n"
+28503 "Show OSD"
+52243 "Turn On Effects"
+34032 "Screenshot key"
+1326 "Original image"
+62662 "Enter path to enable"
+40274 "Before image"
+36493 "After image"
+46529 "Overlay image"
+35877 "Depth image"
+30665 "Macros you can add that are resolved during saving:\n  <APP>               File name of the current executable file (%s)\n  <PRESET>            File name of the current preset file (%s)\n  <INDEX[:format]>    Current number of continuous screenshot\n                      (default: D1)\n  <DATE[:format]>     Timestamp of taken screenshot\n                      (default: %%Y-%%m-%%d %%H-%%M-%%S)"
+54012 "File format"
+45395 "Repeat count"
+23862 "infinity"
+27173 "Repeat wait"
+25325 "Worker threads"
+64930 "unlimited"
+52982 "Estimate memory usage: %.3lf MiB per once (%d images)"
+20932 "Add set:"
+
+END
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////

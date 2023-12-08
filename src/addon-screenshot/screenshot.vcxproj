@@ -47,10 +47,17 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)res;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+        res;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;ImTextureID=ImU64;FPNG_NO_STDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
+      <AdditionalIncludeDirectories>
+        res;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
       <SubSystem>Windows</SubSystem>
     </Link>
     <PreBuildEvent>
@@ -77,7 +84,9 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="dll_resources.hpp" />
+    <ClInclude Include="..\share\dll_resources.hpp" />
+    <ClInclude Include="..\share\localization.hpp" />
+    <ClInclude Include="..\share\std_string_ext.hpp" />
     <ClInclude Include="dllmain.hpp" />
     <ClInclude Include="imgui_widgets.hpp" />
     <ClInclude Include="input.hpp" />
@@ -85,11 +94,10 @@
     <ClInclude Include="res\version.h" />
     <ClInclude Include="runtime_config.hpp" />
     <ClInclude Include="screenshot.hpp" />
-    <ClInclude Include="std_string_ext.hpp" />
     <ClInclude Include="..\..\deps\fpng\src\fpng.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="dll_resources.cpp" />
+    <ClCompile Include="..\share\dll_resources.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="imgui_widgets.cpp" />
     <ClCompile Include="input.cpp" />

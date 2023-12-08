@@ -24,11 +24,15 @@
         $(MSBuildThisFileDirectory)..\deps\reshade\include;
         $(MSBuildThisFileDirectory)..\deps\reshade\deps\imgui;
         $(MSBuildThisFileDirectory)..\deps\fpng\src;
+        $(MSBuildThisFileDirectory)..\deps\utfcpp\source;
+        $(MSBuildThisFileDirectory)share;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ConformanceMode>true</ConformanceMode>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>RESHADE_LOCALIZATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <WarningLevel>Level4</WarningLevel>
     </ClCompile>
@@ -72,7 +76,11 @@
       </AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
-      <PreprocessorDefinitions>_WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>
+        RESHADE_LOCALIZATION;
+        _WIN64;
+        %(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">

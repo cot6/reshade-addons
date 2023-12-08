@@ -8,6 +8,7 @@
 
 #include "dllmain.hpp"
 #include "imgui_widgets.hpp"
+#include "localization.hpp"
 #include "runtime_config.hpp"
 
 #include <fpng.h>
@@ -366,7 +367,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
             break;
     }
 
-    ImGui::TextUnformatted("Active set: ");
+    ImGui::TextUnformatted(_("Active set: "));
     if (ctx.active_screenshot)
     {
         ImGui::SameLine();
@@ -378,7 +379,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     if (ctx.active_screenshot != nullptr)
     {
         fraction = ctx.active_screenshot->repeat_count != 0 ? (static_cast<float>(ctx.screenshot_repeat_index + 1) / ctx.active_screenshot->repeat_count) : 1.0f;
-        str = std::format(ctx.active_screenshot->repeat_count != 0 ? "%u of %u" : "%u times (Infinite mode)", (ctx.screenshot_repeat_index), ctx.active_screenshot->repeat_count);
+        str = std::format(ctx.active_screenshot->repeat_count != 0 ? _("%u of %u") : _("%u times (Infinite mode)"), (ctx.screenshot_repeat_index), ctx.active_screenshot->repeat_count);
     }
     else
     {
@@ -394,12 +395,12 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         [&using_bytes](const screenshot &screenshot) {
             using_bytes += screenshot.pixels.size();
         });
-    str = std::format("%u shots in queue (%.3lf MiB)", ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
+    str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
     ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
     if (ctx.active_screenshot != nullptr && ctx.screenshot_state.error_occurs > 0)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-        ImGui::TextUnformatted("Some errors occurred. Check the log for more details.");
+        ImGui::TextUnformatted(_("Some errors occurred. Check the log for more details."));
         ImGui::PopStyleColor();
     }
     if ((ctx.is_screenshot_enable(screenshot_kind::before) || ctx.is_screenshot_enable(screenshot_kind::after)) &&
@@ -407,7 +408,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         !runtime->get_effects_state())
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_YELLOW);
-        ImGui::TextUnformatted("[WARNING] Skipping  \"Before\" and \"After\" captures because effects are disabled.");
+        ImGui::TextUnformatted(_("[WARNING] Skipping \"Before\" and \"After\" captures because effects are disabled."));
         ImGui::PopStyleColor();
     }
     if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
@@ -415,7 +416,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         !runtime->get_effects_state())
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_YELLOW);
-        ImGui::TextUnformatted("[WARNING] Skipping  \"Depth\" capture because effects are disabled.");
+        ImGui::TextUnformatted(_("[WARNING] Skipping \"Depth\" capture because effects are disabled."));
         ImGui::PopStyleColor();
     }
     if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
@@ -423,7 +424,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         ctx.screenshotdepth_technique.handle == 0)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-        ImGui::TextUnformatted("[BUGCHECK] \"Depth\" capture cannot be performed.");
+        ImGui::TextUnformatted(_("[BUGCHECK] \"Depth\" capture cannot be performed."));
         ImGui::PopStyleColor();
     }
 }
@@ -443,10 +444,14 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
             techniques.emplace_back(technique_name, technique);
         });
 
-    if (ImGui::CollapsingHeader("Screenshot Add-On [by seri14]", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader(_("Screenshot Add-On [by seri14]"), ImGuiTreeNodeFlags_DefaultOpen))
     {
-        modified |= ImGui::Combo("Show OSD", reinterpret_cast<int *>(&ctx.config.show_osd), "Hidden\0Always\0While myset is active\0");
-        modified |= ImGui::Combo("Turn On Effects", reinterpret_cast<int *>(&ctx.config.turn_on_effects), "Ignore\0While myset is active\0When activate myset\0");
+        std::string show_osd_items = _("Hidden\nAlways\nWhile myset is active\n");
+        std::replace(show_osd_items.begin(), show_osd_items.end(), '\n', '\0');
+        std::string turn_on_effects_items = _("Ignore\nWhile myset is active\nWhen activate myset\n");
+        std::replace(turn_on_effects_items.begin(), turn_on_effects_items.end(), '\n', '\0');
+        modified |= ImGui::Combo(_("Show OSD"), reinterpret_cast<int *>(&ctx.config.show_osd), show_osd_items.c_str());
+        modified |= ImGui::Combo(_("Turn On Effects"), reinterpret_cast<int *>(&ctx.config.turn_on_effects), turn_on_effects_items.c_str());
 
         char buf[4096] = "";
 
@@ -461,10 +466,10 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         static const std::wstring_view invalid_characters = L"[]\"/|?*";
                         return 0x0 <= data->EventChar && data->EventChar <= 0x1F || data->EventChar == 0x7F || invalid_characters.find(data->EventChar) != std::string::npos;
                     };
-                modified |= reshade::imgui::key_input_box("Screenshot key", screenshot_myset.screenshot_key_data, runtime);
+                modified |= reshade::imgui::key_input_box(_("Screenshot key"), screenshot_myset.screenshot_key_data, runtime);
                 bool isItemHovered = false;
                 if (buf[screenshot_myset.original_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint("Original image", "Enter path to enable", buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Original image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.original_image = std::filesystem::u8path(buf);
@@ -472,7 +477,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (!isItemHovered)
                     isItemHovered = ImGui::IsItemHovered();
                 if (buf[screenshot_myset.before_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint("Before image", "Enter path to enable", buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Before image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.before_image = std::filesystem::u8path(buf);
@@ -480,7 +485,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (!isItemHovered)
                     isItemHovered = ImGui::IsItemHovered();
                 if (buf[screenshot_myset.after_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint("After image", "Enter path to enable", buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("After image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.after_image = std::filesystem::u8path(buf);
@@ -488,7 +493,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (!isItemHovered)
                     isItemHovered = ImGui::IsItemHovered();
                 if (buf[screenshot_myset.overlay_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint("Overlay image", "Enter path to enable", buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Overlay image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.overlay_image = std::filesystem::u8path(buf);
@@ -496,7 +501,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (!isItemHovered)
                     isItemHovered = ImGui::IsItemHovered();
                 if (buf[screenshot_myset.depth_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint("Depth image", "Enter path to enable", buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Depth image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.depth_image = std::filesystem::u8path(buf);
@@ -506,17 +511,17 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (isItemHovered)
                 {
                     ImGui::SetTooltip(
-                        "Macros you can add that are resolved during saving:\n"
+                        _("Macros you can add that are resolved during saving:\n"
                         "  <APP>               File name of the current executable file (%s)\n"
                         "  <PRESET>            File name of the current preset file (%s)\n"
                         "  <INDEX[:format]>    Current number of continuous screenshot\n"
                         "                      (default: D1)\n"
                         "  <DATE[:format]>     Timestamp of taken screenshot\n"
-                        "                      (default: %%Y-%%m-%%d %%H-%%M-%%S)",
+                        "                      (default: %%Y-%%m-%%d %%H-%%M-%%S)"),
                         ctx.environment.reshade_executable_path.stem().string().c_str(),
                         ctx.environment.reshade_preset_path.stem().string().c_str());
                 }
-                modified |= ImGui::Combo("File format", reinterpret_cast<int *>(&screenshot_myset.image_format),
+                modified |= ImGui::Combo(_("File format"), reinterpret_cast<int *>(&screenshot_myset.image_format),
                     "[libpng] 24-bit PNG\0"
                     "[libpng] 32-bit PNG\0"
                     "[fpng] 24-bit PNG\0"
@@ -524,21 +529,21 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     "[libtiff] 24-bit TIFF\0"
                     "[libtiff] 32-bit TIFF\0"
                 );
-                if (ImGui::DragInt("Repeat count", reinterpret_cast<int *>(&screenshot_myset.repeat_count), 1.0f, 0, 0, screenshot_myset.repeat_count == 0 ? "infinity" : "%d"))
+                if (ImGui::DragInt(_("Repeat count"), reinterpret_cast<int *>(&screenshot_myset.repeat_count), 1.0f, 0, 0, screenshot_myset.repeat_count == 0 ? _("infinity") : "%d"))
                 {
                     if (static_cast<int>(screenshot_myset.repeat_count) < 0)
                         screenshot_myset.repeat_count = 1;
 
                     modified = true;
                 }
-                if (ImGui::DragInt("Repeat wait", reinterpret_cast<int *>(&screenshot_myset.repeat_wait), 1.0f, 1, 0, "%d"))
+                if (ImGui::DragInt(_("Repeat wait"), reinterpret_cast<int *>(&screenshot_myset.repeat_wait), 1.0f, 1, 0, "%d"))
                 {
                     if (static_cast<int>(screenshot_myset.repeat_wait) < 1)
                         screenshot_myset.repeat_wait = 1;
 
                     modified = true;
                 }
-                if (ImGui::DragInt("Worker threads", reinterpret_cast<int *>(&screenshot_myset.worker_threads), 1.0f, 0, ctx.environment.thread_hardware_concurrency, screenshot_myset.worker_threads == 0 ? "unlimited" : "%d"))
+                if (ImGui::DragInt(_("Worker threads"), reinterpret_cast<int *>(&screenshot_myset.worker_threads), 1.0f, 0, ctx.environment.thread_hardware_concurrency, screenshot_myset.worker_threads == 0 ? _("unlimited") : "%d"))
                 {
                     if (static_cast<int>(screenshot_myset.worker_threads) < 0)
                         screenshot_myset.worker_threads = 1;
@@ -553,12 +558,12 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (screenshot_myset.is_enable(screenshot_kind::after)) { enables += 1; depths += 4; }
                 if (screenshot_myset.is_enable(screenshot_kind::overlay)) { enables += 1; depths += 4; }
                 if (screenshot_myset.is_enable(screenshot_kind::depth)) { enables += 1; depths += 2; }
-                ImGui::Text("Estimate memory usage: %.3lf MiB per once (%d images)", static_cast<double>(depths * width * height) / (1024 * 1024 * 1), enables);
+                ImGui::Text(_("Estimate memory usage: %.3lf MiB per once (%d images)"), static_cast<double>(depths * width * height) / (1024 * 1024 * 1), enables);
             }
 
             ImGui::PopID();
         }
-        ImGui::TextUnformatted("Add set:");
+        ImGui::TextUnformatted(_("Add set:"));
         ImGui::SameLine();
         if (ImGui::Button("+"))
         {

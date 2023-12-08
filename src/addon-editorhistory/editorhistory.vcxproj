@@ -47,6 +47,10 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
+      <AdditionalIncludeDirectories>
+        res;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;ImTextureID=ImU64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -70,11 +74,15 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\share\dll_resources.hpp" />
+    <ClInclude Include="..\share\localization.hpp" />
+    <ClInclude Include="..\share\std_string_ext.hpp" />
     <ClInclude Include="dllmain.hpp" />
     <ClInclude Include="res\resource.h" />
     <ClInclude Include="res\version.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\share\dll_resources.cpp" />
     <ClCompile Include="dllmain.cpp" />
   </ItemGroup>
   <ItemGroup>
