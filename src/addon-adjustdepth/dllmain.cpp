@@ -37,7 +37,7 @@ static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
             ctx.variables.emplace_back(variable, name);
         });
 }
-static bool on_reshade_overlay_uniform_variable(reshade::api::effect_runtime *runtime, reshade::api::effect_uniform_variable variable, reshade::api::uniform_value *value)
+static bool on_reshade_overlay_uniform_variable(reshade::api::effect_runtime *runtime, reshade::api::effect_uniform_variable variable)
 {
     adjust_context &ctx = runtime->get_private_data<adjust_context>();
 
