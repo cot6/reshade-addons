@@ -95,7 +95,7 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
 
     if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
         ctx.screenshotdepth_technique.handle == 0)
-        ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.fx", "__Addon_Technique_ScreenshotDepth_Seri14");
+        ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14");
 
     if (ctx.screenshotdepth_technique.handle != 0)
     {
@@ -109,37 +109,6 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
         ctx.is_screenshot_frame(screenshot_kind::after) &&
         !runtime->get_effects_state())
         runtime->set_effects_state(true);
-}
-static void on_reloaded_effects(reshade::api::effect_runtime *runtime)
-{
-    reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-
-    if (ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.fx", "__Addon_Technique_ScreenshotDepth_Seri14");
-        ctx.screenshotdepth_technique.handle == 0)
-    {
-        size_t size = 0;
-        runtime->get_current_preset_path(nullptr, &size);
-        std::string path; path.resize(size + 1);
-        runtime->get_current_preset_path(path.data(), &size);
-        path.resize(size);
-
-        if (ini_file preset(path); preset.has({}, "Techniques"))
-        {
-            std::vector<std::string> technique_list;
-            preset.get({}, "Techniques", technique_list);
-
-            const std::string_view technique_name = "__Addon_Technique_ScreenshotDepth_Seri14@__Addon_ScreenshotDepth_Seri14.fx";
-            if (std::find_if(technique_list.cbegin(), technique_list.cend(),
-                [&technique_name](const std::string &technique) { return technique == technique_name; }) == technique_list.cend())
-            {
-                technique_list.emplace_back(technique_name);
-                preset.set({}, "Techniques", technique_list);
-
-                runtime->set_preprocessor_definition_for_effect(nullptr, "__Addon_Technique_ScreenshotDepth_Seri14", nullptr);
-            }
-        }
-    }
 }
 static void on_begin_effects(reshade::api::effect_runtime *runtime, reshade::api::command_list *, reshade::api::resource_view, reshade::api::resource_view)
 {
@@ -216,7 +185,7 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
                 return mapped_data.data != nullptr;
             };
 
-        if (reshade::api::effect_texture_variable texture = runtime->find_texture_variable("__Addon_ScreenshotDepth_Seri14.fx", "__Addon_Texture_ScreenshotDepth_Seri14");
+        if (reshade::api::effect_texture_variable texture = runtime->find_texture_variable("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Texture_ScreenshotDepth_Seri14");
             texture.handle != 0)
         {
             reshade::api::resource_view rsv{}, rsv_srgb{};
@@ -322,7 +291,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
                     if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
                         ctx.screenshotdepth_technique.handle == 0)
-                        ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.fx", "__Addon_Technique_ScreenshotDepth_Seri14");
+                        ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14");
 
                     if (ctx.screenshotdepth_technique.handle != 0 &&
                         runtime->get_technique_state(ctx.screenshotdepth_technique) == false)
@@ -595,7 +564,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         reshade::register_event<reshade::addon_event::init_effect_runtime>(on_init);
         reshade::register_event<reshade::addon_event::destroy_device>(on_destroy);
         reshade::register_event<reshade::addon_event::present>(on_device_present);
-        reshade::register_event<reshade::addon_event::reshade_reloaded_effects>(on_reloaded_effects);
         reshade::register_event<reshade::addon_event::reshade_begin_effects>(on_begin_effects);
         reshade::register_event<reshade::addon_event::reshade_finish_effects>(on_finish_effects);
         reshade::register_event<reshade::addon_event::reshade_overlay>(on_reshade_overlay);

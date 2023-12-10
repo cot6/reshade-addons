@@ -2,7 +2,7 @@
 // Microsoft Visual C++ generated include file.
 // Used by resource.rc
 //
-#define IDR_SCREENSHOTDEPTH_FX          701
+#define IDR_SCREENSHOTDEPTH_ADDONFX     701
 
 // Next default values for new objects
 // 
