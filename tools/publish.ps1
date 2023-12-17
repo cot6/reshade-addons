@@ -21,6 +21,11 @@ foreach ( $compressionFile in Get-ChildItem -File -Path 'publish\source\*\bin\*.
         -Force
 }
 
+Compress-Archive @( @( Get-ChildItem -File -Filter *.md ) + @( Get-ChildItem -File -Path 'publish\source\*\bin\*.addon??' ) ) `
+    -CompressionLevel Optimal `
+    -DestinationPath "publish\ReShade-Addons-By-seri14.zip" `
+    -Force
+
 # --------------------------------------
 # 結果: 成功
 

@@ -1,5 +1,17 @@
 ﻿# ReShade アドオン
 
+## Adjust Depth
+
+DisplayDepth.fx エフェクトで調節した値をプリプロセッサの定義に反映します。
+
+### 導入方法
+
+アドオン ファイルをReShadeのアドオン フォルダに配置して下さい。(既定ではReShadeのDLLファイルと同じ場所)
+
+64ビット アプリケーションの場合: `ReShade64-AdjustDepth-By-seri14.addon64`
+
+32ビット アプリケーションの場合: `ReShade32-AdjustDepth-By-seri14.addon32`
+
 ## Editor History
 
 テクニック リストの並べ替えや変数エディタの編集内容を記憶します。
