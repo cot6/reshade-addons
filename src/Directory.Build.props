@@ -22,6 +22,7 @@
     <ClCompile>
       <AdditionalIncludeDirectories>
         $(MSBuildThisFileDirectory)..\deps\reshade\include;
+        $(MSBuildThisFileDirectory)..\deps\reshade\res\fonts;
         $(MSBuildThisFileDirectory)..\deps\reshade\deps\imgui;
         $(MSBuildThisFileDirectory)..\deps\fpng\src;
         $(MSBuildThisFileDirectory)..\deps\utfcpp\source;

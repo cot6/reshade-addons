@@ -19,7 +19,6 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEUD)
 LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
-#pragma code_page(65001)
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -57,7 +56,7 @@ END
 // RCDATA
 //
 
-IDR_SCREENSHOTDEPTH_FX  RCDATA                  "res\\__Addon_ScreenshotDepth_Seri14.fx"
+IDR_SCREENSHOTDEPTH_ADDONFX  RCDATA             "res\\__Addon_ScreenshotDepth_Seri14.addonfx"
 
 #endif    // Neutral (Default) resources
 /////////////////////////////////////////////////////////////////////////////

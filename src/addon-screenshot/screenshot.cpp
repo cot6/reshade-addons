@@ -145,15 +145,15 @@ void screenshot_environment::init()
     std::error_code ec{};
     if (std::filesystem::create_directories(addon_private_path, ec); ec.value() == 0)
     {
-        const std::filesystem::path copy_to = addon_private_path / L"__Addon_ScreenshotDepth_Seri14.fx";
-        if (std::filesystem::path copy_from = addon_private_path / L"__Addon_ScreenshotDepth_Seri14.fxgen";
+        const std::filesystem::path copy_to = addon_private_path / L"__Addon_ScreenshotDepth_Seri14.addonfx";
+        if (std::filesystem::path copy_from = addon_private_path / L"__Addon_ScreenshotDepth_Seri14.addonfxgen";
             std::filesystem::exists(copy_from))
         {
             std::filesystem::copy_file(copy_from, copy_to, std::filesystem::copy_options::overwrite_existing, ec);
         }
         else
         {
-            const reshade::resources::data_resource resource = reshade::resources::load_data_resource(IDR_SCREENSHOTDEPTH_FX);
+            const reshade::resources::data_resource resource = reshade::resources::load_data_resource(IDR_SCREENSHOTDEPTH_ADDONFX);
 
             enum class condition { none, open, create, blocked };
             auto condition = condition::none;

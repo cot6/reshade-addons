@@ -15,6 +15,7 @@ BEGIN
 6257 "Active set: "
 48369 "%u of %u"
 63025 "%u times (Infinite mode)"
+15260 "ready"
 18198 "%u shots in queue (%.3lf MiB)"
 50989 "Some errors occurred. Check the log for more details."
 33919 "[WARNING] Skipping ""Before"" and ""After"" captures because effects are disabled."

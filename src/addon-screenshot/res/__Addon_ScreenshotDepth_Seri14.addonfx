@@ -16,7 +16,7 @@ float PS_Addon_ScreenshotDepth_Seri14(in float4 position : SV_Position, in float
     return ReShade::GetLinearizedDepth(texcoord);
 }
 
-technique __Addon_Technique_ScreenshotDepth_Seri14 < hidden = true; ui_label = "ScreenshotDepth"; ui_tooltip = "This technique only handled by Add-ons."; >
+technique __Addon_Technique_ScreenshotDepth_Seri14 < hidden = true; ui_label = "ScreenshotDepth"; ui_tooltip = "This technique only handled by Add-ons."; nosave = true; >
 {
     pass
     {

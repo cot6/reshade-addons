@@ -1,0 +1,41 @@
+#include "version.h"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION ADDON_MAJOR,ADDON_MINOR,ADDON_BUILD,ADDON_REVISION
+ PRODUCTVERSION ADDON_MAJOR,ADDON_MINOR,ADDON_BUILD,ADDON_REVISION
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+ FILEFLAGS ADDON_FILEFLAGS
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_DLL
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040004b0"
+        BEGIN
+            VALUE "CompanyName", "seri14"
+            VALUE "FileVersion", ADDON_STRING_FILE
+            VALUE "ProductName", "AdjustDepth"
+            VALUE "ProductVersion", ADDON_STRING_PRODUCT
+            VALUE "LegalCopyright", "2018 seri14"
+            VALUE "FileDescription", "Adjust depth settings using DisplayDepth.fx"
+#if defined _WIN64
+            VALUE "OriginalFilename", "ReShade64-AdjustDepth-By-seri14.addon64"
+#elif defined _WIN32
+            VALUE "OriginalFilename", "ReShade32-AdjustDepth-By-seri14.addon32"
+#if ADDON_FILEFLAGS & VS_FF_PRIVATEBUILD
+            VALUE "PrivateBuild", ADDON_PRIVATEBUILD
+#endif
+#endif
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x400, 0x4b0
+    END
+END
