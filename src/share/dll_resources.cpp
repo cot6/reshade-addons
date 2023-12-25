@@ -27,7 +27,6 @@ std::string reshade::resources::load_string(unsigned short id)
 {
 	LPCWSTR s = nullptr;
 	const int length = LoadStringW(g_module_handle, id, reinterpret_cast<LPWSTR>(&s), 0);
-    int ec = GetLastError();
 	assert(length > 0);
 
 	std::string utf8_string;

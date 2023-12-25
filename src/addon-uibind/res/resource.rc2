@@ -28,9 +28,9 @@ BEGIN
             VALUE "OriginalFilename", "ReShade64-UIBind-By-seri14.addon64"
 #elif defined _WIN32
             VALUE "OriginalFilename", "ReShade32-UIBind-By-seri14.addon32"
+#endif
 #if ADDON_FILEFLAGS & VS_FF_PRIVATEBUILD
             VALUE "PrivateBuild", ADDON_PRIVATEBUILD
-#endif
 #endif
         END
     END
