@@ -16,5 +16,5 @@ namespace reshade::imgui
 	/// </summary>
 	/// <param name="label">Label text describing this widget.</param>
 	/// <param name="key">Shortcut, consisting of the [virtual key code, Ctrl, Shift, Alt].</param>
-	bool key_input_box(const char *name, unsigned int(&key)[4], reshade::api::effect_runtime *runtime);
+	bool key_input_box(const char *name, const char *hint, unsigned int(&key)[4], reshade::api::effect_runtime *runtime);
 }

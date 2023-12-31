@@ -8,18 +8,19 @@
 
 #include "input.hpp"
 #include "imgui_widgets.hpp"
+#include "localization.hpp"
 
 #include <imgui.h>
 #include <reshade.hpp>
 
-bool reshade::imgui::key_input_box(const char *name, unsigned int(&key)[4], reshade::api::effect_runtime *runtime)
+bool reshade::imgui::key_input_box(const char *name, const char *hint, unsigned int(&key)[4], reshade::api::effect_runtime *runtime)
 {
     bool res = false;
     char buf[48]{};
     if (key[0] || key[1] || key[2] || key[3])
         buf[key_name(key).copy(buf, sizeof(buf) - 1)] = '\0';
 
-    ImGui::InputTextWithHint(name, "Click to set keyboard shortcut", buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_NoHorizontalScroll);
+    ImGui::InputTextWithHint(name, _("Click to set keyboard shortcut"), buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_NoHorizontalScroll);
 
     if (ImGui::IsItemActive())
     {
@@ -43,9 +44,12 @@ bool reshade::imgui::key_input_box(const char *name, unsigned int(&key)[4], resh
             }
         }
     }
-    else if (ImGui::IsItemHovered())
+    else if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
     {
-        ImGui::SetTooltip("Click in the field and press any key to change the shortcut to that key.");
+        std::string tooltip = hint;
+        tooltip += "\n\n";
+        tooltip += _("Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut.");
+        ImGui::SetTooltip("%*s", tooltip.size(), tooltip.c_str());
     }
 
     return res;

@@ -40,6 +40,8 @@ public:
     bool ignore_shortcuts = false;
     bool before_screenshot_enable_effects = false;
 
+    DWORD playsound_flags = 0;
+
     void save();
 
     inline bool is_screenshot_active() const noexcept;

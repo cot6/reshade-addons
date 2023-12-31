@@ -67,41 +67,53 @@ void screenshot_myset::load(const ini_file &config)
 {
     std::string section = ':' + name;
 
-    if (!config.get(section.c_str(), "AfterImage", after_image))
+    if (!config.get(section, "AfterImage", after_image))
         after_image.clear();
-    if (!config.get(section.c_str(), "BeforeImage", before_image))
+    if (!config.get(section, "BeforeImage", before_image))
         before_image.clear();
-    if (!config.get(section.c_str(), "ImageFormat", image_format))
+    if (!config.get(section, "ImageFormat", image_format))
         image_format = 0;
-    if (!config.get(section.c_str(), "KeyScreenshot", screenshot_key_data))
+    if (!config.get(section, "KeyScreenshot", screenshot_key_data))
         std::memset(screenshot_key_data, 0, sizeof(screenshot_key_data));
-    if (!config.get(section.c_str(), "OriginalImage", original_image))
+    if (!config.get(section, "OriginalImage", original_image))
         original_image.clear();
-    if (!config.get(section.c_str(), "OverlayImage", overlay_image))
+    if (!config.get(section, "OverlayImage", overlay_image))
         overlay_image.clear();
-    if (!config.get(section.c_str(), "DepthImage", depth_image))
+    if (!config.get(section, "DepthImage", depth_image))
         depth_image.clear();
-    if (!config.get(section.c_str(), "RepeatCount", repeat_count))
+    if (!config.get(section, "RepeatCount", repeat_count))
         repeat_count = 1;
-    if (!config.get(section.c_str(), "RepeatWait", repeat_wait))
-        repeat_wait = 60;
-    if (!config.get(section.c_str(), "WorkerThreads", worker_threads))
+    if (!config.get(section, "RepeatInterval", repeat_interval))
+        repeat_interval = 60;
+    if (!config.get(section, "WorkerThreads", worker_threads))
         worker_threads = 0;
+    if (!config.get(section, "SoundPath", playsound_path))
+        playsound_path.clear();
+    if (!config.get(section, "PlaybackMode", reinterpret_cast<unsigned int &>(playback_mode)))
+        playback_mode = playback_first_time_only;
+    if (!config.get(section, "PlayDefaultIfNotExist", playsound_force))
+        playsound_force = false;
+    if (!config.get(section, "PlaySoundAsSystemNotification", playsound_as_system_notification))
+        playsound_as_system_notification = true;
 }
 void screenshot_myset::save(ini_file &config) const
 {
     std::string section = ':' + name;
 
-    config.set(section.c_str(), "AfterImage", after_image);
-    config.set(section.c_str(), "BeforeImage", before_image);
-    config.set(section.c_str(), "ImageFormat", image_format);
-    config.set(section.c_str(), "KeyScreenshot", screenshot_key_data);
-    config.set(section.c_str(), "OriginalImage", original_image);
-    config.set(section.c_str(), "OverlayImage", overlay_image);
-    config.set(section.c_str(), "DepthImage", depth_image);
-    config.set(section.c_str(), "RepeatCount", repeat_count);
-    config.set(section.c_str(), "RepeatWait", repeat_wait);
-    config.set(section.c_str(), "WorkerThreads", worker_threads);
+    config.set(section, "AfterImage", after_image);
+    config.set(section, "BeforeImage", before_image);
+    config.set(section, "ImageFormat", image_format);
+    config.set(section, "KeyScreenshot", screenshot_key_data);
+    config.set(section, "OriginalImage", original_image);
+    config.set(section, "OverlayImage", overlay_image);
+    config.set(section, "DepthImage", depth_image);
+    config.set(section, "RepeatCount", repeat_count);
+    config.set(section, "RepeatInterval", repeat_interval);
+    config.set(section, "WorkerThreads", worker_threads);
+    config.set(section, "SoundPath", playsound_path);
+    config.set(section, "PlaybackMode", static_cast<unsigned int>(playback_mode));
+    config.set(section, "PlayDefaultIfNotExist", playsound_force);
+    config.set(section, "PlaySoundAsSystemNotification", playsound_as_system_notification);
 }
 
 void screenshot_environment::load(reshade::api::effect_runtime *runtime)
@@ -204,7 +216,7 @@ void screenshot_environment::init()
     bool updated = false;
     for (const std::filesystem::path &file : std::filesystem::directory_iterator(reshade_base_path, std::filesystem::directory_options::skip_permission_denied, ec))
     {
-        if (file.extension() != ".ini")
+        if (file.extension() != L".ini")
             continue;
         if (!try_update_config(file))
             continue;

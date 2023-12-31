@@ -44,7 +44,7 @@ public:
 
     unsigned int image_format = 0;
     unsigned int repeat_count = 1;
-    unsigned int repeat_wait = 60;
+    unsigned int repeat_interval = 60;
     unsigned int screenshot_key_data[4]{ 0, 0, 0, 0 };
 
     std::filesystem::path original_image;
@@ -53,9 +53,17 @@ public:
     std::filesystem::path overlay_image;
     std::filesystem::path depth_image;
 
-    std::list<std::pair<std::string, std::filesystem::path>> technique_images;
-
     unsigned int worker_threads = 0;
+
+    std::filesystem::path playsound_path;
+    enum : unsigned int
+    {
+        playback_first_time_only = 0,
+        playback_every_time,
+        playback_while_myset_is_active,
+    } playback_mode = playback_first_time_only;
+    bool playsound_force = false;
+    bool playsound_as_system_notification = true;
 
     screenshot_myset() = default;
     screenshot_myset(const ini_file &config, std::string &&name) :

@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <windows.h>
+#include <mmsystem.h>
+
 #include <imgui.h>
 #include <reshade.hpp>
 #include <forkawesome.h>
@@ -23,9 +26,15 @@ using namespace reshade::api;
 
 HMODULE g_module_handle;
 
+static const std::wstring_view invalid_characters = L"[]\"/|?*";
+static int path_filter(ImGuiInputTextCallbackData *data)
+{
+    return 0x0 <= data->EventChar && data->EventChar <= 0x1F || data->EventChar == 0x7F || invalid_characters.find(data->EventChar) != std::string::npos;
+}
+
 void screenshot_context::save()
 {
-    config.save(ini_file::load_cache(environment.reshade_base_path / "ReShade_Addon_Screenshot.ini"), false);
+    config.save(ini_file::load_cache(environment.reshade_base_path / L"ReShade_Addon_Screenshot.ini"), false);
 }
 inline bool screenshot_context::is_screenshot_active() const noexcept
 {
@@ -46,7 +55,7 @@ inline bool screenshot_context::is_screenshot_frame() const noexcept
         return false;
     if (active_screenshot->repeat_count != 0 && active_screenshot->repeat_count <= screenshot_repeat_index)
         return false;
-    if (active_screenshot->repeat_wait != 0 && (screenshot_current_frame - screenshot_begin_frame) % active_screenshot->repeat_wait)
+    if (active_screenshot->repeat_interval != 0 && (screenshot_current_frame - screenshot_begin_frame) % active_screenshot->repeat_interval)
         return false;
 
     return true;
@@ -64,7 +73,7 @@ static void on_init(reshade::api::effect_runtime *runtime)
     ctx.active_screenshot = nullptr;
 
     ctx.environment.load(runtime);
-    ctx.config.load(ini_file::load_cache(ctx.environment.reshade_base_path / "ReShade_Addon_Screenshot.ini"));
+    ctx.config.load(ini_file::load_cache(ctx.environment.reshade_base_path / L"ReShade_Addon_Screenshot.ini"));
 
     ctx.screenshot_begin_frame = std::numeric_limits<decltype(ctx.screenshot_begin_frame)>::max();
 }
@@ -240,10 +249,38 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
     }
 
     if (ctx.is_screenshot_frame())
+    {
+        if (!ctx.active_screenshot->playsound_path.empty() || ctx.active_screenshot->playsound_force)
+        {
+            if (ctx.screenshot_repeat_index == 0 ||
+                ctx.active_screenshot->playback_mode == decltype(screenshot_myset::playback_mode)::playback_every_time)
+            {
+                ctx.playsound_flags = SND_ASYNC;
+                if (ctx.active_screenshot->playsound_as_system_notification)
+                    ctx.playsound_flags |= SND_SYSTEM;
+                if (!ctx.active_screenshot->playsound_force)
+                    ctx.playsound_flags |= SND_NODEFAULT;
+                if (ctx.active_screenshot->playsound_path.has_extension())
+                    ctx.playsound_flags |= SND_FILENAME;
+                else
+                    ctx.playsound_flags |= SND_ALIAS;
+                if (ctx.active_screenshot->playback_mode == decltype(screenshot_myset::playback_mode)::playback_while_myset_is_active)
+                    ctx.playsound_flags |= SND_LOOP;
+
+                PlaySoundW(ctx.active_screenshot->playsound_path.empty() ? L"SystemDefault" : ctx.active_screenshot->playsound_path.c_str(), nullptr, ctx.playsound_flags);
+            }
+        }
         ctx.screenshot_repeat_index++;
+    }
 
     if (ctx.active_screenshot != nullptr && ctx.active_screenshot->repeat_count != 0 && ctx.active_screenshot->repeat_count <= ctx.screenshot_repeat_index)
     {
+        if ((ctx.playsound_flags & SND_LOOP) == SND_LOOP)
+        {
+            PlaySoundW(nullptr, nullptr, ctx.playsound_flags);
+            ctx.playsound_flags = 0;
+        }
+
         if (ctx.screenshotdepth_technique.handle != 0 &&
             runtime->get_technique_state(ctx.screenshotdepth_technique) != false)
             runtime->set_technique_state(ctx.screenshotdepth_technique, false);
@@ -271,6 +308,12 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
             if (runtime->is_key_pressed(keys[0]) && is_key_down(keys[1]) && is_key_down(keys[2]) && is_key_down(keys[3]))
             {
+                if ((ctx.playsound_flags & SND_LOOP) == SND_LOOP)
+                {
+                    PlaySoundW(nullptr, nullptr, ctx.playsound_flags);
+                    ctx.playsound_flags = 0;
+                }
+
                 if (ctx.active_screenshot == &screenshot_myset)
                 {
                     ctx.active_screenshot = nullptr;
@@ -348,15 +391,15 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     std::string str;
     if (ctx.active_screenshot != nullptr)
     {
-        fraction = ctx.active_screenshot->repeat_count != 0 ? (static_cast<float>(ctx.screenshot_repeat_index + 1) / ctx.active_screenshot->repeat_count) : 1.0f;
-        str = std::format(ctx.active_screenshot->repeat_count != 0 ? _("%u of %u") : _("%u times (Infinite mode)"), (ctx.screenshot_repeat_index), ctx.active_screenshot->repeat_count);
+        fraction = (float)((ctx.screenshot_current_frame - ctx.screenshot_begin_frame) % ctx.active_screenshot->repeat_interval) / ctx.active_screenshot->repeat_interval;
+        str = std::format(ctx.active_screenshot->repeat_count != 0 ? _("%u of %u") : _("%u times (Infinite mode)"), ctx.screenshot_repeat_index, ctx.active_screenshot->repeat_count);
     }
     else
     {
         fraction = 1.0f;
         str = _("ready");
     }
-    ImGui::ProgressBar(1.0f, ImVec2(ImGui::GetContentRegionAvail().x, 0), "");
+    ImGui::ProgressBar(fraction, ImVec2(ImGui::GetContentRegionAvail().x, 0), "");
     ImGui::SameLine(15);
     ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
 
@@ -424,6 +467,8 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
         modified |= ImGui::Combo(_("Turn On Effects"), reinterpret_cast<int *>(&ctx.config.turn_on_effects), turn_on_effects_items.c_str());
 
         char buf[4096] = "";
+        std::string playback_mode_items = _("Play sound only when first frame is captured\nPlay a sound each time a frame is captured\nPlay sound continuously while capturing frames\n");
+        std::replace(playback_mode_items.begin(), playback_mode_items.end(), '\n', '\0');
 
         for (screenshot_myset &screenshot_myset : ctx.config.screenshot_mysets)
         {
@@ -431,63 +476,94 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
             if (ImGui::CollapsingHeader(screenshot_myset.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
             {
-                auto path_filter = [](ImGuiInputTextCallbackData *data) -> int
-                    {
-                        static const std::wstring_view invalid_characters = L"[]\"/|?*";
-                        return 0x0 <= data->EventChar && data->EventChar <= 0x1F || data->EventChar == 0x7F || invalid_characters.find(data->EventChar) != std::string::npos;
-                    };
-                modified |= reshade::imgui::key_input_box(_("Screenshot key"), screenshot_myset.screenshot_key_data, runtime);
-                bool isItemHovered = false;
+                modified |= reshade::imgui::key_input_box(_("Screenshot key"), _("When you enter this key combination, the add-on will begin saving screenshots with the following setting. To abort the capture, re-enter the screenshot key."), screenshot_myset.screenshot_key_data, runtime);
+
+                ImGui::BeginDisabled(ctx.is_screenshot_active());
+
+                if (buf[screenshot_myset.playsound_path.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
+                    ImGui::InputTextWithHint(_("Screenshot sound"), _("Enter path to play"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                {
+                    modified = true;
+                    screenshot_myset.playsound_path = std::filesystem::u8path(buf);
+                }
+                ImGui::SetItemTooltip(_("Audio file that is played when taking a screenshot."));
+                modified |= ImGui::Combo(_("Playback mode"), reinterpret_cast<int *>(&screenshot_myset.playback_mode), playback_mode_items.c_str());
+                modified |= ImGui::Checkbox(_("Play default sound if not exists"), &screenshot_myset.playsound_force);
+                modified |= ImGui::Checkbox(_("Play sound as system notification"), &screenshot_myset.playsound_as_system_notification);
+
+                ImGui::EndDisabled();
+
+                screenshot_kind screenshot_path_hovered = screenshot_kind::unset;
                 if (buf[screenshot_myset.original_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("Original image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Original image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.original_image = std::filesystem::u8path(buf);
                 }
-                if (!isItemHovered)
-                    isItemHovered = ImGui::IsItemHovered();
+                if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    screenshot_path_hovered = screenshot_kind::original;
                 if (buf[screenshot_myset.before_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("Before image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Before image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.before_image = std::filesystem::u8path(buf);
                 }
-                if (!isItemHovered)
-                    isItemHovered = ImGui::IsItemHovered();
+                if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    screenshot_path_hovered = screenshot_kind::before;
                 if (buf[screenshot_myset.after_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("After image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("After image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.after_image = std::filesystem::u8path(buf);
                 }
-                if (!isItemHovered)
-                    isItemHovered = ImGui::IsItemHovered();
+                if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    screenshot_path_hovered = screenshot_kind::after;
                 if (buf[screenshot_myset.overlay_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("Overlay image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                   ImGui::InputTextWithHint(_("Overlay image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.overlay_image = std::filesystem::u8path(buf);
                 }
-                if (!isItemHovered)
-                    isItemHovered = ImGui::IsItemHovered();
+                if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    screenshot_path_hovered = screenshot_kind::overlay;
                 if (buf[screenshot_myset.depth_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("Depth image"), _("Enter path to enable"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Depth image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
                 {
                     modified = true;
                     screenshot_myset.depth_image = std::filesystem::u8path(buf);
                 }
-                if (!isItemHovered)
-                    isItemHovered = ImGui::IsItemHovered();
-                if (isItemHovered)
+                if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    screenshot_path_hovered = screenshot_kind::depth;
+                if (screenshot_path_hovered != screenshot_kind::unset)
                 {
-                    ImGui::SetTooltip(
-                        _("Macros you can add that are resolved during saving:\n"
+                    std::string tooltip;
+                    switch (screenshot_path_hovered)
+                    {
+                        case original:
+                            tooltip += _("Capture the frame rendered by the game.");
+                            break;
+                        case before:
+                            tooltip += _("Capture the frame rendered by the game only if effects are enabled.");
+                            break;
+                        case after:
+                            tooltip += _("Capture the frame after applied the effect only if the effects are enabled.");
+                            break;
+                        case overlay:
+                            tooltip += _("Capture the frame after rendered the ReShade overlay.");
+                            break;
+                        case depth:
+                            tooltip += _("Capture the depth of the frame that was used in the game only if effects are enabled.");
+                            break;
+                    }
+                    tooltip += "\n\n";
+                    tooltip += _("Macros you can add that are resolved during saving:\n"
                         "  <APP>               File name of the current executable file (%s)\n"
                         "  <PRESET>            File name of the current preset file (%s)\n"
                         "  <INDEX[:format]>    Current number of continuous screenshot\n"
                         "                      (default: D1)\n"
                         "  <DATE[:format]>     Timestamp of taken screenshot\n"
-                        "                      (default: %%Y-%%m-%%d %%H-%%M-%%S)"),
+                        "                      (default: %%Y-%%m-%%d %%H-%%M-%%S)");
+                    ImGui::SetTooltip(tooltip.c_str(),
                         ctx.environment.reshade_executable_path.stem().string().c_str(),
                         ctx.environment.reshade_preset_path.stem().string().c_str());
                 }
@@ -499,27 +575,31 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     "[libtiff] 24-bit TIFF\0"
                     "[libtiff] 32-bit TIFF\0"
                 );
-                if (ImGui::DragInt(_("Repeat count"), reinterpret_cast<int *>(&screenshot_myset.repeat_count), 1.0f, 0, 0, screenshot_myset.repeat_count == 0 ? _("infinity") : "%d"))
+                ImGui::SetItemTooltip(_("Select the image file format.\nHowever, the depth is always saved in TIFF format regardless of this selection."));
+                if (ImGui::SliderInt(_("Repeat count"), reinterpret_cast<int *>(&screenshot_myset.repeat_count), 0, 60, screenshot_myset.repeat_count == 0 ? _("infinity") : _("%d times"), ImGuiSliderFlags_None))
                 {
                     if (static_cast<int>(screenshot_myset.repeat_count) < 0)
                         screenshot_myset.repeat_count = 1;
 
                     modified = true;
                 }
-                if (ImGui::DragInt(_("Repeat wait"), reinterpret_cast<int *>(&screenshot_myset.repeat_wait), 1.0f, 1, 0, "%d"))
+                ImGui::SetItemTooltip(_("Specify the number of frames to save after pressing the screenshot shortcut key. To abort capture, re-enter the screenshot key."));
+                if (ImGui::SliderInt(_("Repeat interval"), reinterpret_cast<int *>(&screenshot_myset.repeat_interval), 1, 60, screenshot_myset.repeat_interval > 1 ? _("%d frames") : _("every frame"), ImGuiSliderFlags_None))
                 {
-                    if (static_cast<int>(screenshot_myset.repeat_wait) < 1)
-                        screenshot_myset.repeat_wait = 1;
+                    if (static_cast<int>(screenshot_myset.repeat_interval) < 1)
+                        screenshot_myset.repeat_interval = 1;
 
                     modified = true;
                 }
-                if (ImGui::DragInt(_("Worker threads"), reinterpret_cast<int *>(&screenshot_myset.worker_threads), 1.0f, 0, ctx.environment.thread_hardware_concurrency, screenshot_myset.worker_threads == 0 ? _("unlimited") : "%d"))
+                ImGui::SetItemTooltip(_("Specify the interval of frames to be save until the specified number of frames."));
+                if (ImGui::DragInt(_("Worker threads"), reinterpret_cast<int *>(&screenshot_myset.worker_threads), 1.0f, 0, ctx.environment.thread_hardware_concurrency, screenshot_myset.worker_threads == 0 ? _("unlimited") : _("%d threads")))
                 {
                     if (static_cast<int>(screenshot_myset.worker_threads) < 0)
                         screenshot_myset.worker_threads = 1;
 
                     modified = true;
                 }
+                ImGui::SetItemTooltip(_("Specify the number of threads to compress the captured frames to specified image files."));
                 uint32_t width = 0, height = 0;
                 runtime->get_screenshot_width_and_height(&width, &height);
                 int enables = 0, depths = 0;
