@@ -265,7 +265,7 @@ void screenshot::save()
         int tif_ec = 0;
         image_file.replace_extension() += L".tiff";
 
-        if (TIFF *tif = TIFFOpenW(image_file.native().c_str(), "wl");
+        if (TIFF *tif = TIFFOpenW(image_file.c_str(), "wl");
             tif != nullptr)
         {
             TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(1024 * 256), pixels.size()));
@@ -320,6 +320,28 @@ void screenshot::save()
                 TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));
 
             TIFFClose(tif);
+
+            enum class condition { none, open, create, blocked };
+            auto condition = condition::none;
+
+            const HANDLE file = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+
+            if (file == INVALID_HANDLE_VALUE)
+                condition = condition::blocked;
+            else if (GetLastError() == ERROR_SUCCESS)
+                condition = condition::open;
+
+            if (condition == condition::open)
+            {
+                const uint64_t date_time = std::chrono::duration_cast<std::chrono::nanoseconds>(frame_time.time_since_epoch()).count() / 100 + 116444736000000000;
+                FILETIME ft{};
+                ft.dwLowDateTime = date_time & 0xFFFFFFFF;
+                ft.dwHighDateTime = date_time >> 32;
+                SetFileTime(file, nullptr, nullptr, &ft);
+            }
+
+            if (file != INVALID_HANDLE_VALUE)
+                CloseHandle(file);
         }
     }
     else if (myset.image_format == 0 || myset.image_format == 1)
@@ -327,7 +349,7 @@ void screenshot::save()
         image_file.replace_extension() += L".png";
 
         FILE *file = nullptr;
-        if (errno_t fopen_error = _wfopen_s(&file, image_file.native().c_str(), L"wb");
+        if (errno_t fopen_error = _wfopen_s(&file, image_file.c_str(), L"wb");
             file != nullptr)
         {
             const unsigned int channels = myset.image_format == 0 ? 3 : 4;
@@ -382,6 +404,28 @@ void screenshot::save()
             png_destroy_info_struct(write_ptr, &info_ptr);
 
             fclose(file);
+
+            enum class condition { none, open, create, blocked };
+            auto condition = condition::none;
+
+            const HANDLE file = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+
+            if (file == INVALID_HANDLE_VALUE)
+                condition = condition::blocked;
+            else if (GetLastError() == ERROR_SUCCESS)
+                condition = condition::open;
+
+            if (condition == condition::open)
+            {
+                const uint64_t date_time = std::chrono::duration_cast<std::chrono::nanoseconds>(frame_time.time_since_epoch()).count() / 100 + 116444736000000000;
+                FILETIME ft{};
+                ft.dwLowDateTime = date_time & 0xFFFFFFFF;
+                ft.dwHighDateTime = date_time >> 32;
+                SetFileTime(file, nullptr, nullptr, &ft);
+            }
+
+            if (file != INVALID_HANDLE_VALUE)
+                CloseHandle(file);
         }
         else
         {
@@ -426,6 +470,12 @@ void screenshot::save()
             {
                 if (DWORD _; WriteFile(file, encoded_pixels.data(), static_cast<DWORD>(encoded_pixels.size()), &_, NULL) != 0)
                     SetEndOfFile(file);
+
+                const uint64_t date_time = std::chrono::duration_cast<std::chrono::nanoseconds>(frame_time.time_since_epoch()).count() / 100 + 116444736000000000;
+                FILETIME ft{};
+                ft.dwLowDateTime = date_time & 0xFFFFFFFF;
+                ft.dwHighDateTime = date_time >> 32;
+                SetFileTime(file, nullptr, nullptr, &ft);
             }
 
             if (file != INVALID_HANDLE_VALUE)
@@ -452,7 +502,7 @@ void screenshot::save()
                 *((uint32_t *)&pixel[4 * i]);
         }
 
-        if (TIFF *tif = TIFFOpenW(image_file.native().c_str(), "wl");
+        if (TIFF *tif = TIFFOpenW(image_file.c_str(), "wl");
             tif != nullptr)
         {
             TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(1024 * 768), pixels.size()));
@@ -511,6 +561,28 @@ void screenshot::save()
                 TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));
 
             TIFFClose(tif);
+
+            enum class condition { none, open, create, blocked };
+            auto condition = condition::none;
+
+            const HANDLE file = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+
+            if (file == INVALID_HANDLE_VALUE)
+                condition = condition::blocked;
+            else if (GetLastError() == ERROR_SUCCESS)
+                condition = condition::open;
+
+            if (condition == condition::open)
+            {
+                const uint64_t date_time = std::chrono::duration_cast<std::chrono::nanoseconds>(frame_time.time_since_epoch()).count() / 100 + 116444736000000000;
+                FILETIME ft{};
+                ft.dwLowDateTime = date_time & 0xFFFFFFFF;
+                ft.dwHighDateTime = date_time >> 32;
+                SetFileTime(file, nullptr, nullptr, &ft);
+            }
+
+            if (file != INVALID_HANDLE_VALUE)
+                CloseHandle(file);
         }
     }
 

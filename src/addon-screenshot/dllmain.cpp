@@ -94,11 +94,11 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
 
     ctx.screenshot_current_frame++;
-    ctx.present_time = std::chrono::steady_clock::now();
+    ctx.present_time = std::chrono::system_clock::now();
 
     if (ctx.is_screenshot_frame(screenshot_kind::original))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::original, ctx.screenshot_state);
+        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::original, ctx.screenshot_state, ctx.present_time);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
@@ -126,7 +126,7 @@ static void on_begin_effects(reshade::api::effect_runtime *runtime, reshade::api
 
     if (ctx.is_screenshot_frame(screenshot_kind::before))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::before, ctx.screenshot_state);
+        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::before, ctx.screenshot_state, ctx.present_time);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 }
@@ -137,7 +137,7 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
 
     if (ctx.is_screenshot_frame(screenshot_kind::after))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::after, ctx.screenshot_state);
+        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::after, ctx.screenshot_state, ctx.present_time);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
@@ -198,17 +198,20 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
             texture.handle != 0)
         {
             reshade::api::resource_view rsv{}, rsv_srgb{};
-            runtime->get_texture_binding(texture, &rsv, &rsv_srgb);
-            if (reshade::api::resource resource = device->get_resource_from_view(rsv);
-                resource.handle != 0)
+            if (runtime->get_texture_binding(texture, &rsv, &rsv_srgb);
+                rsv.handle != 0)
             {
-                std::vector<uint8_t> texture_data;
-                reshade::api::format texture_format;
-                if (get_texture_data(resource, reshade::api::resource_usage::shader_resource, texture_data, texture_format))
+                if (reshade::api::resource resource = device->get_resource_from_view(rsv);
+                    resource.handle != 0)
                 {
-                    screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::depth, ctx.screenshot_state);
-                    screenshot.repeat_index = ctx.screenshot_repeat_index;
-                    screenshot.pixels = std::move(texture_data);
+                    std::vector<uint8_t> texture_data;
+                    reshade::api::format texture_format;
+                    if (get_texture_data(resource, reshade::api::resource_usage::shader_resource, texture_data, texture_format))
+                    {
+                        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::depth, ctx.screenshot_state, ctx.present_time);
+                        screenshot.repeat_index = ctx.screenshot_repeat_index;
+                        screenshot.pixels = std::move(texture_data);
+                    }
                 }
             }
         }
@@ -221,7 +224,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
     if (ctx.is_screenshot_frame(screenshot_kind::overlay))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::overlay, ctx.screenshot_state);
+        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::overlay, ctx.screenshot_state, ctx.present_time);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
@@ -330,7 +333,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                     if (screenshot_myset.worker_threads != 0)
                         ctx.screenshot_worker_threads = screenshot_myset.worker_threads;
                     else
-                        ctx.screenshot_worker_threads = ctx.environment.thread_hardware_concurrency;
+                        ctx.screenshot_worker_threads = std::thread::hardware_concurrency();
 
                     if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
                         ctx.screenshotdepth_technique.handle == 0)
@@ -592,7 +595,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     modified = true;
                 }
                 ImGui::SetItemTooltip(_("Specify the interval of frames to be save until the specified number of frames."));
-                if (ImGui::DragInt(_("Worker threads"), reinterpret_cast<int *>(&screenshot_myset.worker_threads), 1.0f, 0, ctx.environment.thread_hardware_concurrency, screenshot_myset.worker_threads == 0 ? _("unlimited") : _("%d threads")))
+                if (ImGui::SliderInt(_("Worker threads"), reinterpret_cast<int *>(&screenshot_myset.worker_threads), 0, std::thread::hardware_concurrency(), screenshot_myset.worker_threads == 0 ? _("unlimited") : _("%d threads")))
                 {
                     if (static_cast<int>(screenshot_myset.worker_threads) < 0)
                         screenshot_myset.worker_threads = 1;

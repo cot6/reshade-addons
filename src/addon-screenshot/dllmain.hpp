@@ -24,7 +24,7 @@ public:
     screenshot_config config;
     screenshot_environment environment;
 
-    std::chrono::steady_clock::time_point present_time;
+    std::chrono::system_clock::time_point present_time;
 
     screenshot_myset *active_screenshot = nullptr;
     screenshot_state screenshot_state;

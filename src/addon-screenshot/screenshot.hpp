@@ -119,8 +119,6 @@ public:
 class screenshot_environment
 {
 public:
-    const unsigned int thread_hardware_concurrency = std::thread::hardware_concurrency();
-
     std::filesystem::path addon_private_path;
     std::filesystem::path reshade_base_path;
     std::filesystem::path reshade_executable_path;
@@ -157,18 +155,13 @@ public:
 
     screenshot() = default;
     screenshot(screenshot &&screenshot) = default;
-    screenshot(reshade::api::effect_runtime *runtime, const screenshot_environment &environment, const screenshot_myset &myset, screenshot_kind kind, screenshot_state &state) :
+    screenshot(reshade::api::effect_runtime *runtime, const screenshot_environment &environment, const screenshot_myset &myset, screenshot_kind kind, screenshot_state &state, std::chrono::system_clock::time_point frame_time) :
         environment(environment),
         myset(myset),
         kind(kind),
-        state(state)
+        state(state),
+        frame_time(frame_time)
     {
-        capture(runtime);
-    }
-
-    void capture(reshade::api::effect_runtime *runtime)
-    {
-        frame_time = std::chrono::system_clock::now();
         runtime->get_screenshot_width_and_height(&width, &height);
 
         switch (kind)

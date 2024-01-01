@@ -209,11 +209,11 @@ bool ini_file::save() noexcept
     if (DWORD _; WriteFile(file, str.data(), static_cast<DWORD>(str.size()), &_, NULL) != 0)
         SetEndOfFile(file), _modified = false;
 
-    using filetime_duration = std::chrono::duration<uint64_t, std::ratio<100, 1000000000>>; // 100 nanoseconds
-    using filetime_time_point = std::chrono::time_point<std::filesystem::_File_time_clock, filetime_duration>;
-
-    const uint64_t last_write_time = ((filetime_duration)_modified_at.time_since_epoch()).count();
-    SetFileTime(file, NULL, NULL, &(const FILETIME &)last_write_time);
+    const uint64_t date_time = (std::chrono::duration_cast<std::chrono::nanoseconds>(_modified_at.time_since_epoch()).count() + 11644473600000000000) / 100;
+    FILETIME ft{};
+    ft.dwLowDateTime = date_time & 0xFFFFFFFF;
+    ft.dwHighDateTime = date_time >> 32;
+    SetFileTime(file, nullptr, nullptr, &ft);
 
     CloseHandle(file);
 
