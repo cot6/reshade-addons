@@ -13,15 +13,10 @@ STRINGTABLE
 BEGIN
 
 26291 "End of Undo"
-2694 "Variable %s True"
-43304 "Variable %s False"
-7093 "Variable %s %c %+0.0f (%0.0f)"
-27061 "Variable %s %c %+0.*f (%0.*f)"
-6767 "Variable %s %+lld (%s)"
-37219 "Variable %s %c %+lld (%d)"
-49519 "Variable %s %c %+lld (%u)"
-63540 "Technique %s Enable"
-24567 "Technique %s Disable"
+752 "Variable"
+53009 "Technique"
+21940 "Enable"
+65371 "Disable"
 44720 "Sort technique list"
 21292 "History###editorhistory"
 

@@ -210,17 +210,26 @@ static void draw_history_window(reshade::api::effect_runtime *runtime)
                 reshade::api::format basetype; unsigned int rows;
                 runtime->get_uniform_variable_type(it->variable_handle, &basetype, &rows);
 
+                label += _("Variable");
+                label += ' ';
+                label += variable_name;
                 for (unsigned int i = 0; i < rows; ++i)
                 {
+                    label += ' ';
+                    if (rows > 1)
+                    {
+                        label += (strcmp(ui_type, "color") == 0 ? "RGBA" : "XYZW")[i];
+                        label += ' ';
+                    }
                     if (basetype == reshade::api::format::r32_typeless)
                     {
-                        label += std::format(it->after.as_bool ? _("Variable %s True") : _("Variable %s False"), variable_name);
+                        label += it->after.as_bool ? "True" : "False";
                     }
                     else if (basetype == reshade::api::format::r32_float)
                     {
                         if (strcmp(ui_type, "color") == 0)
                         {
-                            label += std::format(_("Variable %s %c %+0.0f (%0.0f)"), variable_name, "RGBA"[i], (it->after.as_float[i] - it->before.as_float[i]) / (1.0f / 255.0f), it->after.as_float[i] / (1.0f / 255.0f));
+                            label += std::format("%+0.0f (%0.0f)", (it->after.as_float[i] - it->before.as_float[i]) / (1.0f / 255.0f), it->after.as_float[i] / (1.0f / 255.0f));
                         }
                         else
                         {
@@ -234,7 +243,7 @@ static void draw_history_window(reshade::api::effect_runtime *runtime)
                             for (float x = 1.0f; x * ui_stp_val < 1.0f && precision < 9; x *= 10.0f)
                                 ++precision;
 
-                            label += std::format(_("Variable %s %c %+0.*f (%0.*f)"), variable_name, "XYZW"[i], precision, it->after.as_float[i] - it->before.as_float[i], precision, it->after.as_float[i]);
+                            label += std::format("%+0.*f (%0.*f)", precision, it->after.as_float[i] - it->before.as_float[i], precision, it->after.as_float[i]);
                         }
                     }
                     else if (basetype == reshade::api::format::r32_sint || basetype == reshade::api::format::r32_uint)
@@ -249,15 +258,15 @@ static void draw_history_window(reshade::api::effect_runtime *runtime)
                                 if (ui_items[ui_items_offset] == '\0')
                                     ++ui_items_index;
 
-                            label += std::format(_("Variable %s %+lld (%s)"), variable_name, static_cast<int64_t>(it->after.as_uint[i]) - static_cast<int64_t>(it->before.as_uint[i]), ui_items + ui_items_offset);
+                            label += std::format("%+lld (%s)", static_cast<int64_t>(it->after.as_uint[i]) - static_cast<int64_t>(it->before.as_uint[i]), ui_items + ui_items_offset);
                         }
                         else if (basetype == reshade::api::format::r32_sint)
                         {
-                            label += std::format(_("Variable %s %c %+lld (%d)"), variable_name, (strcmp(ui_type, "color") == 0 ? "RGBA" : "XYZW")[i], static_cast<int64_t>(it->after.as_int[i]) - static_cast<int64_t>(it->before.as_int[i]), it->after.as_int[i]);
+                            label += std::format("%+lld (%d)", static_cast<int64_t>(it->after.as_int[i]) - static_cast<int64_t>(it->before.as_int[i]), it->after.as_int[i]);
                         }
                         else
                         {
-                            label += std::format(_("Variable %s %c %+lld (%u)"), variable_name, (strcmp(ui_type, "color") == 0 ? "RGBA" : "XYZW")[i], static_cast<int64_t>(it->after.as_uint[i]) - static_cast<int64_t>(it->before.as_uint[i]), it->after.as_uint[i]);
+                            label += std::format("%+lld (%u)", static_cast<int64_t>(it->after.as_uint[i]) - static_cast<int64_t>(it->before.as_uint[i]), it->after.as_uint[i]);
                         }
                     }
                 }
@@ -265,7 +274,11 @@ static void draw_history_window(reshade::api::effect_runtime *runtime)
             }
             case history::kind::technique_state:
             {
-                label += std::format(it->technique_enabled ? _("Technique %s Enable") : _("Technique %s Disable"), it->technique_name.c_str());
+                label += _("Technique");
+                label += ' ';
+                label += it->technique_name;
+                label += ' ';
+                label += it->technique_enabled ? _("Enable") : _("Disable");
                 break;
             }
             case history::kind::technique_sort:
@@ -368,6 +381,25 @@ static void draw_history_window(reshade::api::effect_runtime *runtime)
     }
 }
 
+static bool on_reshade_open_overlay(reshade::api::effect_runtime *runtime, bool open, reshade::api::input_source)
+{
+    history_context &ctx = runtime->get_private_data<history_context>();
+    ctx.show_overlay = open;
+
+    return false;
+}
+static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
+{
+    history_context &ctx = runtime->get_private_data<history_context>();
+
+    if (!ctx.show_overlay)
+        return;
+
+    if (ImGui::Begin(_("History###editorhistory"), nullptr, ImGuiWindowFlags_NoFocusOnAppearing))
+        draw_history_window(runtime);
+    ImGui::End();
+}
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)
@@ -384,11 +416,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         reshade::register_event<reshade::addon_event::reshade_set_uniform_value>(on_set_uniform_value);
         reshade::register_event<reshade::addon_event::reshade_set_technique_state>(on_set_technique_state);
         reshade::register_event<reshade::addon_event::reshade_reorder_techniques>(on_reorder_techniques);
-        reshade::register_overlay(_("History###editorhistory"), draw_history_window);
+        reshade::register_event<reshade::addon_event::reshade_overlay>(on_reshade_overlay);
+        reshade::register_event<reshade::addon_event::reshade_open_overlay>(on_reshade_open_overlay);
     }
     else if (fdwReason == DLL_PROCESS_DETACH)
     {
-        reshade::unregister_overlay(_("History###editorhistory"), draw_history_window);
         reshade::unregister_addon(hModule);
 
         g_module_handle = nullptr;
