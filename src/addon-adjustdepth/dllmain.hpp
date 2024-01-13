@@ -4,8 +4,8 @@
  */
 
 #pragma once
-#include <list>
 #include <string>
+#include <vector>
 
 #include "res\version.h"
 
@@ -17,5 +17,9 @@
 
 struct __declspec(uuid("a0ca6a72-49f2-4440-9260-bed0f46263d2")) adjust_context
 {
-    std::list<std::pair<reshade::api::effect_uniform_variable, std::string>> variables;
+    reshade::api::effect_uniform_variable ignore_preprocessor_definitions_variable;
+    std::vector<std::pair<reshade::api::effect_uniform_variable, std::string>> displaydepth_variables;
+    std::vector<std::pair<reshade::api::effect_uniform_variable, std::string>> saving_variables;
+    bool ignore_preprocessor_definitions;
+    bool saving_preprocessor_definitions;
 };

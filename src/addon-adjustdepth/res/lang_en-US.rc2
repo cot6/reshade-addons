@@ -13,6 +13,7 @@ STRINGTABLE
 BEGIN
 
 12556 "Save and complete adjustments"
+33911 "Always save adjustments is active"
 
 END
 
