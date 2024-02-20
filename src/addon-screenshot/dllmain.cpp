@@ -618,7 +618,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
         }
         ImGui::TextUnformatted(_("Add set:"));
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FK_PLUS))
+        if (ImGui::Button(ICON_FK_PLUS) || ctx.config.screenshot_mysets.empty())
         {
             const ini_file &config_file = ini_file::load_cache(ctx.environment.addon_screenshot_config_path);
             ctx.config.screenshot_mysets.emplace_back(config_file, "myset" + std::to_string(ctx.present_time.time_since_epoch().count()));
