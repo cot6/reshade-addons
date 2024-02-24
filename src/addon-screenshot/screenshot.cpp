@@ -258,7 +258,7 @@ void screenshot::save()
     image_file = environment.reshade_base_path / image_file;
 
     if (image_file.has_parent_path())
-        std::filesystem::create_directory(image_file.parent_path(), ec);
+        std::filesystem::create_directories(image_file.parent_path(), ec);
 
     if (kind == screenshot_kind::depth)
     {
