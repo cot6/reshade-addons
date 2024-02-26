@@ -610,7 +610,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (screenshot_myset.is_enable(screenshot_kind::before)) { enables += 1; depths += 4; }
                 if (screenshot_myset.is_enable(screenshot_kind::after)) { enables += 1; depths += 4; }
                 if (screenshot_myset.is_enable(screenshot_kind::overlay)) { enables += 1; depths += 4; }
-                if (screenshot_myset.is_enable(screenshot_kind::depth)) { enables += 1; depths += 2; }
+                if (screenshot_myset.is_enable(screenshot_kind::depth)) { enables += 1; depths += 4; }
                 ImGui::Text(_("Estimate memory usage: %.3lf MiB per once (%d images)"), static_cast<double>(depths * width * height) / (1024 * 1024 * 1), enables);
             }
 
