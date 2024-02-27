@@ -16,6 +16,7 @@
 #include "runtime_config.hpp"
 
 #include <fpng.h>
+#include <utf8/unchecked.h>
 
 #include <filesystem>
 #include <list>
@@ -413,7 +414,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         });
     str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
     ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
-    if (ctx.active_screenshot != nullptr && ctx.screenshot_state.error_occurs > 0)
+    if (ctx.screenshot_state.error_occurs > 0)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
         ImGui::TextUnformatted(_("Some errors occurred. Check the log for more details."));
@@ -475,6 +476,27 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
         for (screenshot_myset &screenshot_myset : ctx.config.screenshot_mysets)
         {
+            const auto validate_image_path = [&ctx, &screenshot_myset](screenshot_kind kind, std::filesystem::path &image, std::string &status) {
+                if (status.clear(); image.empty() || image.native().front() == '-')
+                    return;
+
+                screenshot dummy(nullptr, ctx.environment, screenshot_myset, kind, ctx.screenshot_state, ctx.present_time);
+                std::filesystem::path expanded = std::filesystem::u8path(dummy.expand_macro_string(image.u8string()));
+                expanded = ctx.environment.reshade_base_path / expanded;
+
+                if (!expanded.has_filename())
+                {
+                    status = _("File name is mandatory. You will get an error when saving screenshots.");
+                    return;
+                }
+
+                std::error_code ec;
+                std::filesystem::file_status file = std::filesystem::status(expanded, ec);
+                if ((ec.value() != 0x0 && ec.value() != 0x2 && ec.value() != 0x3) ||
+                    (file.type() != std::filesystem::file_type::not_found && file.type() != std::filesystem::file_type::regular))
+                    status = std::format(_("Check failed with %d. You will get an error when saving screenshots.\n%s"), ec.value(), format_message(ec.value(), 0).c_str());
+                };
+
             ImGui::PushID(screenshot_myset.name.c_str(), screenshot_myset.name.c_str() + screenshot_myset.name.size());
 
             if (ImGui::CollapsingHeader(screenshot_myset.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
@@ -497,43 +519,88 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 ImGui::EndDisabled();
 
                 screenshot_kind screenshot_path_hovered = screenshot_kind::unset;
+                if (!screenshot_myset.original_status.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+                    ImGui::TextUnformatted(screenshot_myset.original_status.data(), screenshot_myset.original_status.data() + screenshot_myset.original_status.size());
+                    ImGui::PopStyleColor();
+                }
                 if (buf[screenshot_myset.original_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("Original image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Original image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
+                    ImGui::IsItemDeactivatedAfterEdit())
                 {
                     modified = true;
                     screenshot_myset.original_image = std::filesystem::u8path(buf);
+
+                    validate_image_path(screenshot_kind::original, screenshot_myset.original_image, screenshot_myset.original_status);
                 }
                 if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
                     screenshot_path_hovered = screenshot_kind::original;
+                if (!screenshot_myset.before_status.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+                    ImGui::TextUnformatted(screenshot_myset.before_status.data(), screenshot_myset.before_status.data() + screenshot_myset.before_status.size());
+                    ImGui::PopStyleColor();
+                }
                 if (buf[screenshot_myset.before_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("Before image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Before image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
+                    ImGui::IsItemDeactivatedAfterEdit())
                 {
                     modified = true;
                     screenshot_myset.before_image = std::filesystem::u8path(buf);
+
+                    validate_image_path(screenshot_kind::before, screenshot_myset.before_image, screenshot_myset.before_status);
                 }
                 if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
                     screenshot_path_hovered = screenshot_kind::before;
+                if (!screenshot_myset.after_status.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+                    ImGui::TextUnformatted(screenshot_myset.after_status.data(), screenshot_myset.after_status.data() + screenshot_myset.after_status.size());
+                    ImGui::PopStyleColor();
+                }
                 if (buf[screenshot_myset.after_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("After image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("After image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
+                    ImGui::IsItemDeactivatedAfterEdit())
                 {
                     modified = true;
                     screenshot_myset.after_image = std::filesystem::u8path(buf);
+
+                    validate_image_path(screenshot_kind::after, screenshot_myset.after_image, screenshot_myset.after_status);
                 }
                 if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
                     screenshot_path_hovered = screenshot_kind::after;
+                if (!screenshot_myset.overlay_status.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+                    ImGui::TextUnformatted(screenshot_myset.overlay_status.data(), screenshot_myset.overlay_status.data() + screenshot_myset.overlay_status.size());
+                    ImGui::PopStyleColor();
+                }
                 if (buf[screenshot_myset.overlay_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                   ImGui::InputTextWithHint(_("Overlay image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Overlay image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
+                    ImGui::IsItemDeactivatedAfterEdit())
                 {
                     modified = true;
                     screenshot_myset.overlay_image = std::filesystem::u8path(buf);
+
+                    validate_image_path(screenshot_kind::overlay, screenshot_myset.overlay_image, screenshot_myset.overlay_status);
                 }
                 if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
                     screenshot_path_hovered = screenshot_kind::overlay;
+                if (!screenshot_myset.depth_status.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+                    ImGui::TextUnformatted(screenshot_myset.depth_status.data(), screenshot_myset.depth_status.data() + screenshot_myset.depth_status.size());
+                    ImGui::PopStyleColor();
+                }
                 if (buf[screenshot_myset.depth_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                    ImGui::InputTextWithHint(_("Depth image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
+                    ImGui::InputTextWithHint(_("Depth image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
+                    ImGui::IsItemDeactivatedAfterEdit())
                 {
                     modified = true;
                     screenshot_myset.depth_image = std::filesystem::u8path(buf);
+
+                    validate_image_path(screenshot_kind::depth, screenshot_myset.depth_image, screenshot_myset.depth_status);
                 }
                 if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
                     screenshot_path_hovered = screenshot_kind::depth;

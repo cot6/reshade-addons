@@ -27,6 +27,8 @@ BEGIN
 28503 "Show OSD"
 52243 "Turn On Effects"
 3535 "Play sound only when first frame is captured\nPlay a sound each time a frame is captured\nPlay sound continuously while capturing frames\n"
+61321 "File name is mandatory. You will get an error when saving screenshots."
+23330 "Check failed with %d. You will get an error when saving screenshots.\n%s"
 34032 "Screenshot key"
 11382 "When you enter this key combination, the add-on will begin saving screenshots with the following setting. To abort the capture, re-enter the screenshot key."
 12682 "Screenshot sound"

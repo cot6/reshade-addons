@@ -9,6 +9,7 @@
 #include "runtime_config.hpp"
 
 #include <reshade.hpp>
+#include <utf8\unchecked.h>
 
 #include <chrono>
 #include <filesystem>
@@ -25,6 +26,25 @@ enum screenshot_kind
     overlay,
     depth,
 };
+
+constexpr const char *get_screenshot_kind_name(screenshot_kind kind)
+{
+    switch (kind)
+    {
+        case screenshot_kind::original:
+            return "original";
+        case screenshot_kind::before:
+            return "before";
+        case screenshot_kind::after:
+            return "after";
+        case screenshot_kind::overlay:
+            return "overlay";
+        case screenshot_kind::depth:
+            return "depth";
+        default:
+            return "unknown";
+    }
+}
 
 class screenshot_state
 {
@@ -64,6 +84,14 @@ public:
     } playback_mode = playback_first_time_only;
     bool playsound_force = false;
     bool playsound_as_system_notification = true;
+
+    // Validating
+
+    std::string original_status;
+    std::string before_status;
+    std::string after_status;
+    std::string overlay_status;
+    std::string depth_status;
 
     screenshot_myset() = default;
     screenshot_myset(const ini_file &config, std::string &&name) :
@@ -153,6 +181,8 @@ public:
     std::vector<uint8_t> pixels;
     std::chrono::system_clock::time_point frame_time;
 
+    std::string message;
+
     screenshot() = default;
     screenshot(screenshot &&screenshot) = default;
     screenshot(reshade::api::effect_runtime *runtime, const screenshot_environment &environment, const screenshot_myset &myset, screenshot_kind kind, screenshot_state &state, std::chrono::system_clock::time_point frame_time) :
@@ -162,7 +192,8 @@ public:
         state(state),
         frame_time(frame_time)
     {
-        runtime->get_screenshot_width_and_height(&width, &height);
+        if (runtime)
+            runtime->get_screenshot_width_and_height(&width, &height);
 
         switch (kind)
         {
@@ -170,8 +201,11 @@ public:
             case screenshot_kind::before:
             case screenshot_kind::after:
             case screenshot_kind::overlay:
-                pixels.resize(static_cast<size_t>(width) * height * 4);
-                runtime->capture_screenshot(pixels.data());
+                if (runtime)
+                {
+                    pixels.resize(static_cast<size_t>(width) * height * 4);
+                    runtime->capture_screenshot(pixels.data());
+                }
                 break;
             default:
             case screenshot_kind::depth:
@@ -180,8 +214,19 @@ public:
     }
 
     void save();
-
-private:
-    std::string expand_macro_string(const std::string &input);
+    std::string expand_macro_string(const std::string &input) const;
 };
 
+static std::string format_message(DWORD dwMessageId, DWORD dwLanguageId = 0x409) noexcept
+{
+    std::string status;
+    WCHAR fmbuf[128] = L"";
+    DWORD len = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK,
+        nullptr, dwMessageId, dwLanguageId, fmbuf, ARRAYSIZE(fmbuf), nullptr);
+    std::wstring_view message(fmbuf, len); status.reserve(len);
+    while (message.size() > 0 && message.back() <= L'\x20')
+        message = message.substr(0, message.size() - 1);
+    utf8::unchecked::utf16to8(message.cbegin(), message.cend(), std::back_inserter(status));
+
+    return status;
+}
