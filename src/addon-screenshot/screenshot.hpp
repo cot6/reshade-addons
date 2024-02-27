@@ -132,6 +132,7 @@ public:
         hidden = 0,
         show_osd_always,
         show_osd_while_myset_is_active,
+        show_osd_while_myset_is_active_ignore_errors,
     } show_osd = show_osd_while_myset_is_active;
     enum : unsigned int
     {

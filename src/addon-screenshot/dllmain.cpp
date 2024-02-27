@@ -379,15 +379,19 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         case decltype(screenshot_config::show_osd)::show_osd_always:
             break;
         case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active:
+            if (ctx.active_screenshot == nullptr && ctx.screenshot_state.error_occurs == 0)
+                return;
+            break;
+        case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active_ignore_errors:
             if (ctx.active_screenshot == nullptr)
                 return;
             break;
     }
 
-    ImGui::TextUnformatted(_("Active set: "));
     if (ctx.active_screenshot)
     {
-        ImGui::SameLine();
+        ImGui::TextUnformatted(_("Active set: "));
+        ImGui::SameLine(0, 0);
         ImGui::TextUnformatted(ctx.active_screenshot->name.c_str(), ctx.active_screenshot->name.c_str() + ctx.active_screenshot->name.size());
     }
 
@@ -407,17 +411,21 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     ImGui::SameLine(15);
     ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
 
-    uint64_t using_bytes = 0;
-    std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
-        [&using_bytes](const screenshot &screenshot) {
-            using_bytes += screenshot.pixels.size();
-        });
-    str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
-    ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
+    if (ctx.active_screenshot)
+    {
+        uint64_t using_bytes = 0;
+        std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
+            [&using_bytes](const screenshot &screenshot) {
+                using_bytes += screenshot.pixels.size();
+            });
+        str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
+        ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
+    }
+
     if (ctx.screenshot_state.error_occurs > 0)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-        ImGui::TextUnformatted(_("Some errors occurred. Check the log for more details."));
+        ImGui::TextUnformatted(_("Failed. Check details in the log."));
         ImGui::PopStyleColor();
     }
     if ((ctx.is_screenshot_enable(screenshot_kind::before) || ctx.is_screenshot_enable(screenshot_kind::after)) &&
@@ -463,7 +471,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
     if (ImGui::CollapsingHeader(_("Screenshot Add-On [by seri14]"), ImGuiTreeNodeFlags_DefaultOpen))
     {
-        std::string show_osd_items = _("Hidden\nAlways\nWhile myset is active\n");
+        std::string show_osd_items = _("Hidden\nAlways\nWhile myset is active\nWhile myset is active (Ignore errors)\n");
         std::replace(show_osd_items.begin(), show_osd_items.end(), '\n', '\0');
         std::string turn_on_effects_items = _("Ignore\nWhile myset is active\nWhen activate myset\n");
         std::replace(turn_on_effects_items.begin(), turn_on_effects_items.end(), '\n', '\0');
