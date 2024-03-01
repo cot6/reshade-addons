@@ -16,7 +16,7 @@ Push-Location $( git rev-parse --show-toplevel )
 # --------------------------------------
 # リポジトリにタグがあるかどうか
 
-if ( $( git describe --tags --always ) -notlike 'v*' )
+if ( $( git describe --match "v*" --tags --always ) -notlike 'v*' )
 {
     # --------------------------------------
     # 結果: 失敗
@@ -27,7 +27,7 @@ if ( $( git describe --tags --always ) -notlike 'v*' )
 # --------------------------------------
 # タグ文字列を確認する
 
-if ( $( git describe --long --tags ) -notmatch 'v(.+)-(\d+)-g(.+)' )
+if ( $( git describe --match "v*" --long --tags ) -notmatch 'v(.+)-(\d+)-g(.+)' )
 {
     # --------------------------------------
     # 結果: 失敗
@@ -78,8 +78,8 @@ $content = @"
 
 #define ADDON_FULL $($version.Major).$($version.Minor).$($version.Build).$($version.Revision)
 
-#define ADDON_STRING_FILE "$( git describe --long --tags )$developingStr"
-#define ADDON_STRING_PRODUCT "$( git describe --long --tags )/$( git rev-parse --abbrev-ref HEAD )$developingStr"
+#define ADDON_STRING_FILE "$( git describe --match "v*" --long --tags )$developingStr"
+#define ADDON_STRING_PRODUCT "$( git describe --match "v*" --long --tags )/$( git rev-parse --abbrev-ref HEAD )$developingStr"
 
 #ifdef _DEBUG
 #define ADDON_FILEFLAGS ($fileFlags | VS_FF_DEBUG)
