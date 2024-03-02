@@ -54,3 +54,27 @@ bool reshade::imgui::key_input_box(const char *name, const char *hint, unsigned 
 
     return res;
 }
+
+bool reshade::imgui::radio_list(const char *label, const std::string_view ui_items, int &v)
+{
+    ImGui::BeginGroup();
+
+    bool res = false;
+
+    const float item_width = ImGui::CalcItemWidth();
+
+    // Group all radio buttons together into a list
+    ImGui::BeginGroup();
+
+    for (size_t offset = 0, next, i = 0; (next = ui_items.find('\0', offset)) != std::string_view::npos; offset = next + 1, ++i)
+        res |= ImGui::RadioButton(ui_items.data() + offset, &v, static_cast<int>(i));
+
+    ImGui::EndGroup();
+
+    ImGui::SameLine(item_width, ImGui::GetStyle().ItemInnerSpacing.x);
+    ImGui::TextUnformatted(label);
+
+    ImGui::EndGroup();
+
+    return res;
+}
