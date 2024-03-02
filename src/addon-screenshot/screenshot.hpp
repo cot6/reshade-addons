@@ -10,6 +10,8 @@
 
 #include <reshade.hpp>
 #include <utf8\unchecked.h>
+#include <png.h>
+#include <zlib.h>
 
 #include <chrono>
 #include <filesystem>
@@ -49,6 +51,7 @@ constexpr const char *get_screenshot_kind_name(screenshot_kind kind)
 class screenshot_state
 {
 public:
+    std::atomic<uint64_t> last_elapsed;
     std::atomic<unsigned int> error_occurs;
 
     void reset()
@@ -84,6 +87,11 @@ public:
     } playback_mode = playback_first_time_only;
     bool playsound_force = false;
     bool playsound_as_system_notification = true;
+
+    int file_write_buffer_size = 1024 * 768;
+    int libpng_png_filters = PNG_ALL_FILTERS;
+    int zlib_compression_level = Z_BEST_COMPRESSION;
+    int zlib_compression_strategy = Z_RLE;
 
     // Validating
 

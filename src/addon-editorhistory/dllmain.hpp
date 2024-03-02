@@ -53,6 +53,7 @@ struct __declspec(uuid("2f91f8ec-6f8e-436b-b6cc-d7f8d5f9e44c")) history_context
 {
     bool show_overlay = false;
     bool was_updated = false;
+    size_t techniques_count = 0;
     size_t history_pos = 0;
     std::list<history> histories;
 };

@@ -95,6 +95,14 @@ void screenshot_myset::load(const ini_file &config)
         playsound_force = false;
     if (!config.get(section, "PlaySoundAsSystemNotification", playsound_as_system_notification))
         playsound_as_system_notification = true;
+    if (!config.get(section, "FileWriteBufferSize", file_write_buffer_size))
+        file_write_buffer_size = 1024 * 768;
+    if (!config.get(section, "LibpngPngFilters", libpng_png_filters))
+        libpng_png_filters = PNG_ALL_FILTERS;
+    if (!config.get(section, "ZlibCompressionLevel", zlib_compression_level))
+        zlib_compression_level = Z_BEST_COMPRESSION;
+    if (!config.get(section, "ZlibCompressionStrategy", zlib_compression_strategy))
+        zlib_compression_strategy = Z_RLE;
 }
 void screenshot_myset::save(ini_file &config) const
 {
@@ -114,6 +122,10 @@ void screenshot_myset::save(ini_file &config) const
     config.set(section, "PlaybackMode", static_cast<unsigned int>(playback_mode));
     config.set(section, "PlayDefaultIfNotExist", playsound_force);
     config.set(section, "PlaySoundAsSystemNotification", playsound_as_system_notification);
+    config.set(section, "FileWriteBufferSize", file_write_buffer_size);
+    config.set(section, "LibpngPngFilters", libpng_png_filters);
+    config.set(section, "ZlibCompressionLevel", zlib_compression_level);
+    config.set(section, "ZlibCompressionStrategy", zlib_compression_strategy);
 }
 
 void screenshot_environment::load(reshade::api::effect_runtime *runtime)
@@ -128,7 +140,7 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
     size_t size;
 
     size = ExpandEnvironmentStringsW(L"%ALLUSERSPROFILE%", buf.as_wchar, ARRAYSIZE(buf.as_wchar));
-    const std::filesystem::path env_all_users_profile = std::wstring(buf.as_wchar, size > 0 ? size - 1 : 0);
+    const std::filesystem::path env_all_users_profile = std::wstring_view(buf.as_wchar, size > 0 ? size - 1 : 0);
 
     // Addon Private Path
     // <= 10.4.2
@@ -136,7 +148,11 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
     //  > 10.4.2
     // %ALLUSERSPROFILE%/ReShade Addons/Seri
     addon_private_path = env_all_users_profile / L"ReShade Addons" / L"Seri";
-    std::filesystem::create_directories(addon_private_path, ec);
+    if (std::filesystem::create_directories(addon_private_path, ec); ec)
+    {
+        const std::string message = std::format("Failed to create the private path of Add-on with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), addon_private_path.u8string().c_str());
+        reshade::log_message(reshade::log_level::error, message.c_str());
+    }
 
     // Effect Search Paths
     // <= 10.4.2
@@ -148,19 +164,19 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
         std::filesystem::remove(old_screenshotdepth_addonfx, ec);
 
     if (size = ARRAYSIZE(buf.as_char), reshade::get_reshade_base_path(buf.as_char, &size); size != 0)
-        reshade_base_path = std::filesystem::u8path(std::string(buf.as_char, size));
+        reshade_base_path = std::filesystem::u8path(std::string_view(buf.as_char, size));
     else
         reshade_base_path.clear();
 
     if (size = GetModuleFileNameW(nullptr, buf.as_wchar, ARRAYSIZE(buf.as_wchar)); size != 0)
-        reshade_executable_path = std::wstring(buf.as_wchar, size);
+        reshade_executable_path = std::wstring_view(buf.as_wchar, size);
     else
         reshade_executable_path.clear();
 
     if (runtime != nullptr)
     {
         if (size = ARRAYSIZE(buf.as_char), runtime->get_current_preset_path(buf.as_char, &size); size)
-            reshade_preset_path = std::filesystem::u8path(std::string(buf.as_char, size));
+            reshade_preset_path = std::filesystem::u8path(std::string_view(buf.as_char, size));
         else
             reshade_preset_path.clear();
     }
@@ -181,13 +197,18 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
 void screenshot_environment::init()
 {
     std::error_code ec{};
-    if (std::filesystem::create_directories(addon_private_path / L"reshade-shaders" / L"Shaders", ec); ec.value() == 0)
+    const std::filesystem::path addon_shaders = addon_private_path / L"reshade-shaders" / L"Shaders";
+    if (std::filesystem::create_directories(addon_shaders, ec); !ec)
     {
-        const std::filesystem::path copy_to = addon_private_path / L"reshade-shaders" / L"Shaders" / L"__Addon_ScreenshotDepth_Seri14.addonfx";
-        if (std::filesystem::path copy_from = addon_private_path / L"reshade-shaders" / L"Shaders" / L"__Addon_ScreenshotDepth_Seri14.addonfxgen";
+        const std::filesystem::path copy_to = addon_shaders / L"__Addon_ScreenshotDepth_Seri14.addonfx";
+        if (std::filesystem::path copy_from = addon_shaders / L"__Addon_ScreenshotDepth_Seri14.addonfxgen";
             std::filesystem::status(copy_from).type() == std::filesystem::file_type::regular)
         {
-            std::filesystem::copy_file(copy_from, copy_to, std::filesystem::copy_options::overwrite_existing, ec);
+            if (std::filesystem::copy_file(copy_from, copy_to, std::filesystem::copy_options::overwrite_existing, ec); ec)
+            {
+                const std::string message = std::format("Failed to create the Add-on specific effect with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), copy_to.u8string().c_str());
+                reshade::log_message(reshade::log_level::error, message.c_str());
+            }
         }
         else
         {
@@ -197,10 +218,11 @@ void screenshot_environment::init()
             auto condition = condition::none;
 
             const HANDLE file = CreateFileW(copy_to.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+            ec = std::error_code(GetLastError(), std::system_category());
 
             if (file == INVALID_HANDLE_VALUE)
                 condition = condition::blocked;
-            else if (GetLastError() == ERROR_ALREADY_EXISTS)
+            else if (ec.value() == ERROR_ALREADY_EXISTS)
                 condition = condition::open;
             else
                 condition = condition::create;
@@ -213,7 +235,18 @@ void screenshot_environment::init()
 
             if (file != INVALID_HANDLE_VALUE)
                 CloseHandle(file);
+
+            if (file == INVALID_HANDLE_VALUE)
+            {
+                const std::string message = std::format("Failed to create the Add-on specific effect with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), copy_to.u8string().c_str());
+                reshade::log_message(reshade::log_level::error, message.c_str());
+            }
         }
+    }
+    else
+    {
+        const std::string message = std::format("Failed to create the directory of Add-on specific shaders with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), addon_shaders.u8string().c_str());
+        reshade::log_message(reshade::log_level::error, message.c_str());
     }
 
     auto try_update_config = [this](const std::filesystem::path &file, bool force = false) -> bool
@@ -256,7 +289,10 @@ void screenshot_environment::init()
 
 void screenshot::save()
 {
+    const auto begin = std::chrono::system_clock::now();
+
     std::error_code ec{};
+    bool success = true;
 
     std::filesystem::path image_file;
     switch (kind)
@@ -279,7 +315,7 @@ void screenshot::save()
         default:
             message = std::format("Unknown screenshot kind: %d", kind);
             reshade::log_message(reshade::log_level::debug, message.c_str());
-            state.error_occurs++;
+            success = false;
             return;
     }
 
@@ -291,7 +327,7 @@ void screenshot::save()
         message = std::format("Skip saving '%s' screenshot because the path has no file name! \"%s\"", get_screenshot_kind_name(kind), image_file.u8string().c_str());
         reshade::log_message(reshade::log_level::error, message.c_str());
 
-        state.error_occurs++;
+        success = false;
         return;
     }
 
@@ -303,7 +339,7 @@ void screenshot::save()
             message = std::format("Failed to create '%s' screenshot directory with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), parent_path.u8string().c_str());
             reshade::log_message(reshade::log_level::error, message.c_str());
 
-            state.error_occurs++;
+            success = false;
             return;
         }
     }
@@ -316,7 +352,7 @@ void screenshot::save()
         if (TIFF *tif = TIFFOpenW(image_file.c_str(), "wl");
             tif != nullptr)
         {
-            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(1024 * 256), pixels.size()));
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), pixels.size()));
 
             // 256 - 259
             TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
@@ -397,7 +433,7 @@ void screenshot::save()
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
 
-                state.error_occurs++;
+                success = false;
             }
         }
     }
@@ -426,16 +462,16 @@ void screenshot::save()
             if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
                 write_ptr != nullptr)
             {
-                setvbuf(file, nullptr, _IOFBF, static_cast<size_t>(1024 * 768));
+                setvbuf(file, nullptr, _IOFBF, myset.file_write_buffer_size);
 
                 png_init_io(write_ptr, file);
-                png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, PNG_ALL_FILTERS);
+                png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, myset.libpng_png_filters);
 
                 png_set_compression_mem_level(write_ptr, MAX_MEM_LEVEL);
                 png_set_compression_buffer_size(write_ptr, 65536);
 
-                png_set_compression_level(write_ptr, Z_BEST_COMPRESSION);
-                png_set_compression_strategy(write_ptr, Z_RLE);
+                png_set_compression_level(write_ptr, myset.zlib_compression_level);
+                png_set_compression_strategy(write_ptr, myset.zlib_compression_strategy);
 
                 if (info_ptr = png_create_info_struct(write_ptr);
                     info_ptr != nullptr)
@@ -490,7 +526,7 @@ void screenshot::save()
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
 
-                state.error_occurs++;
+                success = false;
             }
         }
         else
@@ -502,7 +538,7 @@ void screenshot::save()
                 reshade::log_message(reshade::log_level::error, message.c_str());
             }
 
-            state.error_occurs++;
+            success = false;
         }
     }
     else if (myset.image_format == 2 || myset.image_format == 3)
@@ -556,7 +592,7 @@ void screenshot::save()
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
 
-                state.error_occurs++;
+                success = false;
             }
         }
     }
@@ -579,7 +615,7 @@ void screenshot::save()
         if (TIFF *tif = TIFFOpenW(image_file.c_str(), "wl");
             tif != nullptr)
         {
-            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(1024 * 768), pixels.size()));
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), pixels.size()));
 
             // 256 - 259
             TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
@@ -664,7 +700,7 @@ void screenshot::save()
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
 
-                state.error_occurs++;
+                success = false;
             }
         }
         else
@@ -672,8 +708,18 @@ void screenshot::save()
             message = std::format("Failed to saving '%s' screenshot path \"%s\"!", get_screenshot_kind_name(kind), image_file.u8string().c_str());
             reshade::log_message(reshade::log_level::error, message.c_str());
 
-            state.error_occurs++;
+            success = false;
         }
+    }
+
+    if (success)
+    {
+        const auto elapsed = std::chrono::system_clock::now() - begin;
+        state.last_elapsed = elapsed.count();
+    }
+    else
+    {
+        state.error_occurs++;
     }
 
     return;

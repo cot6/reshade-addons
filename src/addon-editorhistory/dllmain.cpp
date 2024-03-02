@@ -60,7 +60,15 @@ static void on_destroy(reshade::api::effect_runtime *runtime)
 static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
 {
     history_context &ctx = runtime->get_private_data<history_context>();
-    ctx.histories.clear();
+    size_t techniques_count = 0;
+
+    runtime->enumerate_techniques(nullptr, [&techniques_count](reshade::api::effect_runtime *, reshade::api::effect_technique) { techniques_count++; });
+
+    if (ctx.techniques_count != techniques_count)
+        ctx.techniques_count = techniques_count;
+
+    if (ctx.techniques_count == 0)
+        ctx.histories.clear();
 }
 
 static void on_reshade_set_current_preset_path(reshade::api::effect_runtime *runtime, const char *)
@@ -79,6 +87,7 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
         return false;
 
     history_context &ctx = runtime->get_private_data<history_context>();
+    ctx.was_updated = true;
 
     reshade::api::format basetype;
     runtime->get_uniform_variable_type(variable, &basetype);
@@ -117,7 +126,7 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
         while (ctx.history_pos > 0)
         {
             ctx.histories.pop_front();
-            --ctx.history_pos;
+            ctx.history_pos--;
         }
 
         if (auto front = ctx.histories.begin(); front != ctx.histories.end() && front->variable_handle.handle == variable.handle)
@@ -130,7 +139,6 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
             ctx.histories.push_front(std::move(history));
 
         ctx.history_pos = 0;
-        ctx.was_updated = true;
     }
 
     return false;
@@ -144,6 +152,7 @@ static bool on_set_technique_state(reshade::api::effect_runtime *runtime, reshad
         return false;
 
     history_context &ctx = runtime->get_private_data<history_context>();
+    ctx.was_updated = true;
 
     char technique_name[128] = "";
     runtime->get_technique_name(technique, technique_name);
@@ -163,7 +172,7 @@ static bool on_set_technique_state(reshade::api::effect_runtime *runtime, reshad
         while (ctx.history_pos > 0)
         {
             ctx.histories.pop_front();
-            --ctx.history_pos;
+            ctx.history_pos--;
         }
 
         if (ctx.histories.size() < HISTORY_LIMIT)
@@ -184,124 +193,131 @@ static void draw_history_window(reshade::api::effect_runtime *runtime)
 
     history_context &ctx = runtime->get_private_data<history_context>();
 
-    if (ImGui::Selectable(_("End of Undo"), ctx.history_pos == ctx.histories.size()))
+    bool selected = ctx.history_pos == ctx.histories.size();
+    if (ImGui::Selectable(_("End of Undo"), selected))
         selected_pos = ctx.histories.size();
 
-    if (ctx.histories.empty())
-        return;
-
-    current_pos = ctx.histories.size() - 1;
-    bool modified = false;
-
-    for (auto it = ctx.histories.rbegin(); it != ctx.histories.rend(); --current_pos, ++it)
+    if (ctx.was_updated && selected)
     {
-        std::string label;
+        ctx.was_updated = false;
+        ImGui::SetScrollHereY();
+    }
 
-        switch (it->kind)
+    if (!ctx.histories.empty())
+    {
+        current_pos = ctx.histories.size() - 1;
+
+        for (auto it = ctx.histories.rbegin(); it != ctx.histories.rend(); --current_pos, ++it)
         {
-            case history::kind::uniform_value:
+            std::string label;
+
+            switch (it->kind)
             {
-                char ui_type[16] = "";
-                runtime->get_annotation_string_from_uniform_variable(it->variable_handle, "ui_type", ui_type);
-
-                char variable_name[128] = "";
-                runtime->get_uniform_variable_name(it->variable_handle, variable_name);
-
-                reshade::api::format basetype; unsigned int rows;
-                runtime->get_uniform_variable_type(it->variable_handle, &basetype, &rows);
-
-                label += _("Variable");
-                label += ' ';
-                label += variable_name;
-                for (unsigned int i = 0; i < rows; ++i)
+                case history::kind::uniform_value:
                 {
+                    char ui_type[16] = "";
+                    runtime->get_annotation_string_from_uniform_variable(it->variable_handle, "ui_type", ui_type);
+
+                    char variable_name[128] = "";
+                    runtime->get_uniform_variable_name(it->variable_handle, variable_name);
+
+                    reshade::api::format basetype; unsigned int rows;
+                    runtime->get_uniform_variable_type(it->variable_handle, &basetype, &rows);
+
+                    label += _("Variable");
                     label += ' ';
-                    if (rows > 1)
+                    label += variable_name;
+                    for (unsigned int i = 0; i < rows; ++i)
                     {
-                        label += (strcmp(ui_type, "color") == 0 ? "RGBA" : "XYZW")[i];
                         label += ' ';
-                    }
-                    if (basetype == reshade::api::format::r32_typeless)
-                    {
-                        label += it->after.as_bool ? "True" : "False";
-                    }
-                    else if (basetype == reshade::api::format::r32_float)
-                    {
-                        if (strcmp(ui_type, "color") == 0)
+                        if (rows > 1)
                         {
-                            label += std::format("%+0.0f (%0.0f)", (it->after.as_float[i] - it->before.as_float[i]) / (1.0f / 255.0f), it->after.as_float[i] / (1.0f / 255.0f));
+                            label += (strcmp(ui_type, "color") == 0 ? "RGBA" : "XYZW")[i];
+                            label += ' ';
                         }
-                        else
+                        if (basetype == reshade::api::format::r32_typeless)
                         {
-                            float ui_stp_val = 0.0f;
-                            runtime->get_annotation_float_from_uniform_variable(it->variable_handle, "ui_step", &ui_stp_val, 1);
-                            if (FLT_EPSILON > ui_stp_val)
-                                ui_stp_val = 0.001f;
+                            label += it->after.as_bool ? "True" : "False";
+                        }
+                        else if (basetype == reshade::api::format::r32_float)
+                        {
+                            if (strcmp(ui_type, "color") == 0)
+                            {
+                                label += std::format("%+0.0f (%0.0f)", (it->after.as_float[i] - it->before.as_float[i]) / (1.0f / 255.0f), it->after.as_float[i] / (1.0f / 255.0f));
+                            }
+                            else
+                            {
+                                float ui_stp_val = 0.0f;
+                                runtime->get_annotation_float_from_uniform_variable(it->variable_handle, "ui_step", &ui_stp_val, 1);
+                                if (FLT_EPSILON > ui_stp_val)
+                                    ui_stp_val = 0.001f;
 
-                            // Calculate display precision based on step value
-                            int precision = 0;
-                            for (float x = 1.0f; x * ui_stp_val < 1.0f && precision < 9; x *= 10.0f)
-                                ++precision;
+                                // Calculate display precision based on step value
+                                int precision = 0;
+                                for (float x = 1.0f; x * ui_stp_val < 1.0f && precision < 9; x *= 10.0f)
+                                    ++precision;
 
-                            label += std::format("%+0.*f (%0.*f)", precision, it->after.as_float[i] - it->before.as_float[i], precision, it->after.as_float[i]);
+                                label += std::format("%+0.*f (%0.*f)", precision, it->after.as_float[i] - it->before.as_float[i], precision, it->after.as_float[i]);
+                            }
+                        }
+                        else if (basetype == reshade::api::format::r32_sint || basetype == reshade::api::format::r32_uint)
+                        {
+                            char ui_items[512] = ""; size_t ui_items_len = sizeof(ui_items);
+                            runtime->get_annotation_string_from_uniform_variable(it->variable_handle, "ui_items", ui_items, &ui_items_len);
+
+                            if (strcmp(ui_type, "combo") == 0)
+                            {
+                                size_t ui_items_offset = 0;
+                                for (uint32_t ui_items_index = 0; ui_items_offset < ui_items_len && ui_items_index != it->after.as_uint[0]; ++ui_items_offset)
+                                    if (ui_items[ui_items_offset] == '\0')
+                                        ++ui_items_index;
+
+                                label += std::format("%+lld (%s)", static_cast<int64_t>(it->after.as_uint[i]) - static_cast<int64_t>(it->before.as_uint[i]), ui_items + ui_items_offset);
+                            }
+                            else if (basetype == reshade::api::format::r32_sint)
+                            {
+                                label += std::format("%+lld (%d)", static_cast<int64_t>(it->after.as_int[i]) - static_cast<int64_t>(it->before.as_int[i]), it->after.as_int[i]);
+                            }
+                            else
+                            {
+                                label += std::format("%+lld (%u)", static_cast<int64_t>(it->after.as_uint[i]) - static_cast<int64_t>(it->before.as_uint[i]), it->after.as_uint[i]);
+                            }
                         }
                     }
-                    else if (basetype == reshade::api::format::r32_sint || basetype == reshade::api::format::r32_uint)
-                    {
-                        char ui_items[512] = ""; size_t ui_items_len = sizeof(ui_items);
-                        runtime->get_annotation_string_from_uniform_variable(it->variable_handle, "ui_items", ui_items, &ui_items_len);
-
-                        if (strcmp(ui_type, "combo") == 0)
-                        {
-                            size_t ui_items_offset = 0;
-                            for (uint32_t ui_items_index = 0; ui_items_offset < ui_items_len && ui_items_index != it->after.as_uint[0]; ++ui_items_offset)
-                                if (ui_items[ui_items_offset] == '\0')
-                                    ++ui_items_index;
-
-                            label += std::format("%+lld (%s)", static_cast<int64_t>(it->after.as_uint[i]) - static_cast<int64_t>(it->before.as_uint[i]), ui_items + ui_items_offset);
-                        }
-                        else if (basetype == reshade::api::format::r32_sint)
-                        {
-                            label += std::format("%+lld (%d)", static_cast<int64_t>(it->after.as_int[i]) - static_cast<int64_t>(it->before.as_int[i]), it->after.as_int[i]);
-                        }
-                        else
-                        {
-                            label += std::format("%+lld (%u)", static_cast<int64_t>(it->after.as_uint[i]) - static_cast<int64_t>(it->before.as_uint[i]), it->after.as_uint[i]);
-                        }
-                    }
+                    break;
                 }
-                break;
+                case history::kind::technique_state:
+                {
+                    label += _("Technique");
+                    label += ' ';
+                    label += it->technique_name;
+                    label += ' ';
+                    label += it->technique_enabled ? _("Enable") : _("Disable");
+                    break;
+                }
+                case history::kind::technique_sort:
+                {
+                    label += _("Sort technique list");
+                    break;
+                }
             }
-            case history::kind::technique_state:
+
+            label += "##" + std::to_string(current_pos);
+
+            selected = current_pos == ctx.history_pos;
+            if (ImGui::Selectable(label.c_str(), selected))
+                selected_pos = current_pos;
+
+            if (ctx.was_updated && selected)
             {
-                label += _("Technique");
-                label += ' ';
-                label += it->technique_name;
-                label += ' ';
-                label += it->technique_enabled ? _("Enable") : _("Disable");
-                break;
+                ctx.was_updated = false;
+                ImGui::SetScrollHereY();
             }
-            case history::kind::technique_sort:
-            {
-                label += _("Sort technique list");
-                break;
-            }
-        }
-
-        label += "##" + std::to_string(current_pos);
-
-        if (ImGui::Selectable(label.c_str(), current_pos == ctx.history_pos))
-        {
-            modified = true;
-            selected_pos = current_pos;
-        }
-
-        if (ctx.was_updated && current_pos == ctx.history_pos)
-        {
-            ctx.was_updated = false;
-            ImGui::SetScrollHereY();
         }
     }
+
+    if (ctx.was_updated)
+        ctx.was_updated = false;
 
     if (selected_pos == ctx.history_pos || selected_pos == std::numeric_limits<size_t>::max())
         return;
@@ -394,6 +410,9 @@ static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
 
     if (!ctx.show_overlay)
         return;
+
+    ImGui::SetNextWindowSize(ImVec2(320, 240), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 320 - ImGui::GetStyle().WindowPadding.x, ImGui::GetStyle().WindowPadding.y + 104), ImGuiCond_FirstUseEver);
 
     if (ImGui::Begin(_("History###editorhistory"), nullptr, ImGuiWindowFlags_NoFocusOnAppearing))
         draw_history_window(runtime);

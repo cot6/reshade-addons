@@ -24,13 +24,15 @@ public:
     screenshot_config config;
     screenshot_environment environment;
 
+    uint64_t current_frame = 0;
+
     std::chrono::system_clock::time_point present_time;
+    std::chrono::system_clock::time_point capture_time, capture_last;
 
     screenshot_myset *active_screenshot = nullptr;
     screenshot_state screenshot_state;
 
     uint64_t screenshot_begin_frame = std::numeric_limits<decltype(screenshot_begin_frame)>::max();
-    uint64_t screenshot_current_frame = 0;
     unsigned int screenshot_repeat_index = 0;
 
     std::list<screenshot> screenshots;

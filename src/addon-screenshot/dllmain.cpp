@@ -56,7 +56,7 @@ inline bool screenshot_context::is_screenshot_frame() const noexcept
         return false;
     if (active_screenshot->repeat_count != 0 && active_screenshot->repeat_count <= screenshot_repeat_index)
         return false;
-    if (active_screenshot->repeat_interval != 0 && (screenshot_current_frame - screenshot_begin_frame) % active_screenshot->repeat_interval)
+    if (active_screenshot->repeat_interval != 0 && (current_frame - screenshot_begin_frame) % active_screenshot->repeat_interval)
         return false;
 
     return true;
@@ -94,8 +94,14 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
 
-    ctx.screenshot_current_frame++;
+    ctx.current_frame++;
     ctx.present_time = std::chrono::system_clock::now();
+
+    if (ctx.is_screenshot_frame())
+    {
+        ctx.capture_last = ctx.capture_time;
+        ctx.capture_time = ctx.present_time;
+    }
 
     if (ctx.is_screenshot_frame(screenshot_kind::original))
     {
@@ -324,11 +330,14 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                 }
                 else
                 {
-                    ctx.screenshot_state.reset();
                     ctx.active_screenshot = &screenshot_myset;
+                    ctx.capture_time = std::numeric_limits<decltype(ctx.capture_time)>::max();
+                    ctx.capture_last = std::numeric_limits<decltype(ctx.capture_last)>::max();
+
+                    ctx.screenshot_state.reset();
 
                     ctx.before_screenshot_enable_effects = runtime->get_effects_state();
-                    ctx.screenshot_begin_frame = ctx.screenshot_current_frame + 1;
+                    ctx.screenshot_begin_frame = ctx.current_frame + 1;
                     ctx.screenshot_repeat_index = 0;
 
                     if (screenshot_myset.worker_threads != 0)
@@ -379,7 +388,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         case decltype(screenshot_config::show_osd)::show_osd_always:
             break;
         case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active:
-            if (ctx.active_screenshot == nullptr && ctx.screenshot_state.error_occurs == 0)
+            if (ctx.active_screenshot == nullptr && ctx.screenshot_state.error_occurs == 0 && ctx.screenshots.empty())
                 return;
             break;
         case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active_ignore_errors:
@@ -390,7 +399,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
 
     if (ctx.active_screenshot)
     {
-        ImGui::TextUnformatted(_("Active set: "));
+        ImGui::Text("%s", _("Active set: "));
         ImGui::SameLine(0, 0);
         ImGui::TextUnformatted(ctx.active_screenshot->name.c_str(), ctx.active_screenshot->name.c_str() + ctx.active_screenshot->name.size());
     }
@@ -399,7 +408,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     std::string str;
     if (ctx.active_screenshot != nullptr)
     {
-        fraction = (float)((ctx.screenshot_current_frame - ctx.screenshot_begin_frame) % ctx.active_screenshot->repeat_interval) / ctx.active_screenshot->repeat_interval;
+        fraction = (float)((ctx.current_frame - ctx.screenshot_begin_frame) % ctx.active_screenshot->repeat_interval) / ctx.active_screenshot->repeat_interval;
         str = std::format(ctx.active_screenshot->repeat_count != 0 ? _("%u of %u") : _("%u times (Infinite mode)"), ctx.screenshot_repeat_index, ctx.active_screenshot->repeat_count);
     }
     else
@@ -409,9 +418,9 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     }
     ImGui::ProgressBar(fraction, ImVec2(ImGui::GetContentRegionAvail().x, 0), "");
     ImGui::SameLine(15);
-    ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
+    ImGui::Text("%*s", str.size(), str.c_str());
 
-    if (ctx.active_screenshot)
+    if (!ctx.screenshots.empty())
     {
         uint64_t using_bytes = 0;
         std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
@@ -419,39 +428,30 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
                 using_bytes += screenshot.pixels.size();
             });
         str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
-        ImGui::TextUnformatted(str.c_str(), str.c_str() + str.size());
+        ImGui::Text("%*s", str.size(), str.c_str());
     }
 
+    if (ctx.active_screenshot != nullptr &&
+        ctx.screenshot_state.last_elapsed / std::max<size_t>(1, ctx.screenshot_worker_threads) > (ctx.capture_time - ctx.capture_last).count())
+        ImGui::TextColored(COLOR_YELLOW, "%s", _("Processing of screenshots is too slow!"));
+
     if (ctx.screenshot_state.error_occurs > 0)
-    {
-        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-        ImGui::TextUnformatted(_("Failed. Check details in the log."));
-        ImGui::PopStyleColor();
-    }
+        ImGui::TextColored(COLOR_YELLOW, "%s", _("Failed. Check details in the log."));
+
     if ((ctx.is_screenshot_enable(screenshot_kind::before) || ctx.is_screenshot_enable(screenshot_kind::after)) &&
         (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
         !runtime->get_effects_state())
-    {
-        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_YELLOW);
-        ImGui::TextUnformatted(_("[WARNING] Skipping \"Before\" and \"After\" captures because effects are disabled."));
-        ImGui::PopStyleColor();
-    }
+        ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Before\" and \"After\" captures because effects are disabled."));
+
     if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
         (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
         !runtime->get_effects_state())
-    {
-        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_YELLOW);
-        ImGui::TextUnformatted(_("[WARNING] Skipping \"Depth\" capture because effects are disabled."));
-        ImGui::PopStyleColor();
-    }
+        ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Depth\" capture because effects are disabled."));
+
     if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
         runtime->get_effects_state() &&
         ctx.screenshotdepth_technique.handle == 0)
-    {
-        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-        ImGui::TextUnformatted(_("[BUGCHECK] \"Depth\" capture cannot be performed."));
-        ImGui::PopStyleColor();
-    }
+        ImGui::TextColored(COLOR_RED, "%s", _("[BUGCHECK] \"Depth\" capture cannot be performed."));
 }
 static void draw_setting_window(reshade::api::effect_runtime *runtime)
 {
@@ -645,14 +645,6 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         ctx.environment.reshade_executable_path.stem().string().c_str(),
                         ctx.environment.reshade_preset_path.stem().string().c_str());
                 }
-                modified |= ImGui::Combo(_("File format"), reinterpret_cast<int *>(&screenshot_myset.image_format),
-                    "[libpng] 24-bit PNG\0"
-                    "[libpng] 32-bit PNG\0"
-                    "[fpng] 24-bit PNG\0"
-                    "[fpng] 32-bit PNG\0"
-                    "[libtiff] 24-bit TIFF\0"
-                    "[libtiff] 32-bit TIFF\0"
-                );
                 ImGui::SetItemTooltip(_("Select the image file format.\nHowever, the depth is always saved in TIFF format regardless of this selection."));
                 if (ImGui::SliderInt(_("Repeat count"), reinterpret_cast<int *>(&screenshot_myset.repeat_count), 0, 60, screenshot_myset.repeat_count == 0 ? _("infinity") : _("%d times"), ImGuiSliderFlags_None))
                 {
@@ -687,6 +679,106 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (screenshot_myset.is_enable(screenshot_kind::overlay)) { enables += 1; depths += 4; }
                 if (screenshot_myset.is_enable(screenshot_kind::depth)) { enables += 1; depths += 4; }
                 ImGui::Text(_("Estimate memory usage: %.3lf MiB per once (%d images)"), static_cast<double>(depths * width * height) / (1024 * 1024 * 1), enables);
+
+                int file_write_buffer_size = screenshot_myset.file_write_buffer_size / (1024 * 1);
+                if (ImGui::SliderInt("File write buffer size", &file_write_buffer_size, 4, 1024 * 1, "%d KiB"))
+                {
+                    modified = true;
+                    screenshot_myset.file_write_buffer_size = std::clamp(file_write_buffer_size * (1024 * 1), 1024 * 4, std::numeric_limits<int>::max());
+                }
+                modified |= ImGui::Combo(_("File format"), reinterpret_cast<int *>(&screenshot_myset.image_format),
+                    "[libpng] 24-bit PNG\0"
+                    "[libpng] 32-bit PNG\0"
+                    "[fpng] 24-bit PNG\0"
+                    "[fpng] 32-bit PNG\0"
+                    "[libtiff] 24-bit TIFF\0"
+                    "[libtiff] 32-bit TIFF\0"
+                );
+                if (screenshot_myset.image_format == 0 || screenshot_myset.image_format == 1)
+                {
+                    if (ImGui::TreeNodeEx(_("Libpng settings###Libpng settings"), ImGuiTreeNodeFlags_NoTreePushOnOpen))
+                    {
+                        ImGui::TextUnformatted(_("Presets:")); ImGui::SameLine();
+                        if (ImGui::SmallButton(_("High speed###PresetsHighSpeed")))
+                        {
+                            modified = true;
+                            screenshot_myset.zlib_compression_level = Z_BEST_SPEED;
+                            screenshot_myset.zlib_compression_strategy = Z_HUFFMAN_ONLY;
+                            screenshot_myset.libpng_png_filters = PNG_FAST_FILTERS;
+                        }
+                        ImGui::SameLine();
+                        if (ImGui::SmallButton(_("High compression###PresetsHighCompression")))
+                        {
+                            modified = true;
+                            screenshot_myset.zlib_compression_level = Z_BEST_COMPRESSION;
+                            screenshot_myset.zlib_compression_strategy = Z_RLE;
+                            screenshot_myset.libpng_png_filters = PNG_NO_FILTERS;
+                        }
+                        ImGui::SameLine();
+                        if (ImGui::SmallButton(_("Default###PresetsDefault")))
+                        {
+                            modified = true;
+                            screenshot_myset.zlib_compression_level = Z_BEST_COMPRESSION;
+                            screenshot_myset.zlib_compression_strategy = Z_RLE;
+                            screenshot_myset.libpng_png_filters = PNG_ALL_FILTERS;
+                        }
+                        // PNG filter algorithms
+                        {
+                            ImGui::BeginGroup();
+
+                            const float item_width = ImGui::CalcItemWidth();
+
+                            // Group all radio buttons together into a list
+                            ImGui::BeginGroup();
+
+                            bool v = screenshot_myset.libpng_png_filters == PNG_NO_FILTERS;
+                            if (ImGui::Checkbox(_("NO FILTERS   (0x00)"), &v))
+                            {
+                                modified = true;
+                                screenshot_myset.libpng_png_filters = PNG_NO_FILTERS;
+                            }
+                            modified |= ImGui::CheckboxFlags(_("FILTER NONE  (0x08)"), &screenshot_myset.libpng_png_filters, PNG_FILTER_NONE);
+                            modified |= ImGui::CheckboxFlags(_("FILTER SUB   (0x10)"), &screenshot_myset.libpng_png_filters, PNG_FILTER_SUB);
+                            modified |= ImGui::CheckboxFlags(_("FILTER UP    (0x20)"), &screenshot_myset.libpng_png_filters, PNG_FILTER_UP);
+                            modified |= ImGui::CheckboxFlags(_("FILTER AVG   (0x40)"), &screenshot_myset.libpng_png_filters, PNG_FILTER_AVG);
+                            modified |= ImGui::CheckboxFlags(_("FILTER PAETH (0x80)"), &screenshot_myset.libpng_png_filters, PNG_FILTER_PAETH);
+
+                            ImGui::EndGroup();
+
+                            ImGui::SameLine(item_width, ImGui::GetStyle().ItemInnerSpacing.x);
+
+                            ImGui::BeginGroup();
+                            ImGui::TextUnformatted(_("[libpng] PNG filter algorithms"));
+                            ImGui::TextUnformatted(_("Presets:"));
+                            if (ImGui::SmallButton(_("FAST###PNGFastFilters")))
+                            {
+                                modified = true;
+                                screenshot_myset.libpng_png_filters = PNG_FAST_FILTERS;
+                            }
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton(_("ALL###PNGAllFilters")))
+                            {
+                                modified = true;
+                                screenshot_myset.libpng_png_filters = PNG_ALL_FILTERS;
+                            }
+                            ImGui::EndGroup();
+
+                            ImGui::EndGroup();
+                        }
+                        modified |= ImGui::SliderInt(_("[zlib] Compression level"), &screenshot_myset.zlib_compression_level, Z_DEFAULT_COMPRESSION, Z_BEST_COMPRESSION,
+                            screenshot_myset.zlib_compression_level == Z_DEFAULT_COMPRESSION ? _("Default compression") :
+                            screenshot_myset.zlib_compression_level == Z_NO_COMPRESSION ? _("No compression") :
+                            screenshot_myset.zlib_compression_level == Z_BEST_SPEED ? _("Best speed") :
+                            screenshot_myset.zlib_compression_level == Z_BEST_COMPRESSION ? _("Best compression") : "%d", ImGuiSliderFlags_AlwaysClamp);
+                        std::string compression_strategy_items = _("DEFAULT STRATEGY\nFILTERED\nHUFFMAN ONLY\nRLE\nFIXED\n");
+                        for (char *c = compression_strategy_items.data(); *c != '\0'; c++)
+                        {
+                            if (*c == '\n')
+                                *c = '\0';
+                        }
+                        modified |= reshade::imgui::radio_list(_("[zlib] Compression strategy"), compression_strategy_items, screenshot_myset.zlib_compression_strategy);
+                    }
+                }
             }
 
             ImGui::PopID();
