@@ -715,7 +715,6 @@ void screenshot::save()
     if (success)
     {
         const auto elapsed = std::chrono::high_resolution_clock::now().time_since_epoch() - begin.time_since_epoch();
-        reshade::log_message(reshade::log_level::debug, std::format("%.1lf ms", elapsed.count() * 1e-6).c_str());
 
         state.saved_elapsed_sum += elapsed.count();
         state.saved_count++;
