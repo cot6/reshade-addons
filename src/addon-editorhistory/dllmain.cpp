@@ -86,6 +86,13 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
     if (runtime->get_annotation_string_from_uniform_variable(variable, "source", nullptr, nullptr))
         return false;
 
+    // Ignore hidden and add-on controlled uniform variables
+    if (runtime->get_annotation_int_from_uniform_variable(variable, "hidden", nullptr, 0) ||
+        runtime->get_annotation_int_from_uniform_variable(variable, "noedit", nullptr, 0) ||
+        runtime->get_annotation_int_from_uniform_variable(variable, "noreset", nullptr, 0) ||
+        runtime->get_annotation_int_from_uniform_variable(variable, "nosave", nullptr, 0))
+        return false;
+
     history_context &ctx = runtime->get_private_data<history_context>();
     ctx.was_updated = true;
 
@@ -112,9 +119,23 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
             return false; // Unknown type from future version
     }
 
-    std::memcpy(after.as_uint, value, std::min(size, size_t(4 * 16)));
+    if (std::memcpy(after.as_uint, value, std::min(size, sizeof(after.as_uint)));
+        std::memcmp(&before, &after, sizeof(after)) == 0)
+        return false;
 
-    if (std::memcmp(&before, &after, sizeof(after)) != 0)
+    if (auto it = std::next(ctx.histories.begin(), ctx.history_pos); it != ctx.histories.end() &&
+        it->kind == history::kind::uniform_value && it->variable_handle == variable &&
+        std::memcmp(&after.as_uint, it->before.as_uint, sizeof(after.as_uint)) == 0)
+    {
+        ctx.history_pos++;
+    }
+    else if (it = ctx.history_pos > 0 ? std::next(ctx.histories.begin(), ctx.history_pos - 1) : ctx.histories.end(); it != ctx.histories.end() &&
+        it->kind == history::kind::uniform_value && it->variable_handle == variable &&
+        std::memcmp(&before.as_uint, it->after.as_uint, sizeof(after.as_uint)) == 0)
+    {
+        ctx.history_pos--;
+    }
+    else
     {
         history history;
         history.kind = history::kind::uniform_value;
@@ -129,7 +150,8 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
             ctx.history_pos--;
         }
 
-        if (auto front = ctx.histories.begin(); front != ctx.histories.end() && front->variable_handle.handle == variable.handle)
+        if (auto front = ctx.histories.begin(); front != ctx.histories.end() &&
+            front->variable_handle == variable)
         {
             std::memcpy(&history.before, &front->before, sizeof(history.before));
             ctx.histories.pop_front();
@@ -157,11 +179,17 @@ static bool on_set_technique_state(reshade::api::effect_runtime *runtime, reshad
     char technique_name[128] = "";
     runtime->get_technique_name(technique, technique_name);
 
-    if (const auto it = std::next(ctx.histories.begin(), ctx.history_pos);
-        it == ctx.histories.end() ||
-        it->kind != history::kind::technique_state ||
-        it->technique_name != technique_name ||
-        enabled == it->technique_enabled)
+    if (auto it = std::next(ctx.histories.begin(), ctx.history_pos); it != ctx.histories.end() &&
+        it->kind == history::kind::technique_state && it->technique_name == technique_name)
+    {
+        ctx.history_pos++;
+    }
+    else if (it = ctx.history_pos > 0 ? std::next(ctx.histories.begin(), ctx.history_pos - 1) : ctx.histories.end(); it != ctx.histories.end() &&
+        it->kind == history::kind::technique_state && it->technique_name == technique_name)
+    {
+        ctx.history_pos--;
+    }
+    else
     {
         history history;
         history.kind = history::kind::technique_state;
@@ -177,10 +205,6 @@ static bool on_set_technique_state(reshade::api::effect_runtime *runtime, reshad
 
         if (ctx.histories.size() < HISTORY_LIMIT)
             ctx.histories.push_front(std::move(history));
-    }
-    else
-    {
-        ctx.history_pos++;
     }
 
     return false;
