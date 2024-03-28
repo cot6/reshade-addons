@@ -249,42 +249,32 @@ void screenshot_environment::init()
         reshade::log_message(reshade::log_level::error, message.c_str());
     }
 
-    auto try_update_config = [this](const std::filesystem::path &file, bool force = false) -> bool
-        {
-            ini_file config(file);
-
-            if (!force && !config.has("GENERAL", "EffectSearchPaths"))
-                return false;
-
-            std::vector<std::filesystem::path> effect_search_paths;
-            config.get("GENERAL", "EffectSearchPaths", effect_search_paths);
-
-            if (const std::filesystem::path effect_search_path = addon_private_path / L"reshade-shaders" / L"Shaders" / L"**";
-                std::find_if(effect_search_paths.begin(), effect_search_paths.end(), [&effect_search_path](std::filesystem::path &path) {
-                    return path == effect_search_path; }) == effect_search_paths.end())
-            {
-                effect_search_paths.push_back(effect_search_path);
-                config.set("GENERAL", "EffectSearchPaths", effect_search_paths);
-                config.flush_cache();
-
-                return true;
-            }
-
-            return false;
-        };
-
     bool updated = false;
-    for (const std::filesystem::path &file : std::filesystem::directory_iterator(reshade_base_path, std::filesystem::directory_options::skip_permission_denied, ec))
-    {
-        if (file.extension() != L".ini")
-            continue;
-        if (!try_update_config(file))
-            continue;
+    ini_file config(reshade_base_path / L"ReShade.ini");
 
+    std::vector<std::filesystem::path> effect_search_paths;
+    config.get("GENERAL", "EffectSearchPaths", effect_search_paths);
+
+    const std::filesystem::path effect_search_path = addon_private_path / L"reshade-shaders" / L"Shaders" / L"**";
+    if (std::find_if(effect_search_paths.begin(), effect_search_paths.end(),
+        [&effect_search_path](std::filesystem::path &path) { return path == effect_search_path; }) != effect_search_paths.end())
+    {
         updated = true;
     }
+    else
+    {
+        effect_search_paths.push_back(effect_search_path);
+        config.set("GENERAL", "EffectSearchPaths", effect_search_paths);
+
+        updated = config.save();
+    }
+
     if (!updated)
-        try_update_config(reshade_base_path / L"ReShade.ini", true);
+    {
+        reshade::log_message(reshade::log_level::error, "Updating process was not performed to the ReShade configuration file! Depth map images will not be saved.");
+        reshade::log_message(reshade::log_level::error, "Please add the following path to Effect search paths manually (Don't remove these characters '**'):");
+        reshade::log_message(reshade::log_level::error, effect_search_path.u8string().c_str());
+    }
 }
 
 void screenshot::save()

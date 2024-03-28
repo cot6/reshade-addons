@@ -109,10 +109,6 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
-    if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
-        ctx.screenshotdepth_technique.handle == 0)
-        ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14");
-
     if (ctx.screenshotdepth_technique.handle != 0)
     {
         const bool enabled = ctx.is_screenshot_frame(screenshot_kind::depth);
@@ -345,10 +341,6 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                     else
                         ctx.screenshot_worker_threads = std::thread::hardware_concurrency();
 
-                    if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
-                        ctx.screenshotdepth_technique.handle == 0)
-                        ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14");
-
                     if (ctx.screenshotdepth_technique.handle != 0 &&
                         runtime->get_technique_state(ctx.screenshotdepth_technique) == false)
                         runtime->set_technique_state(ctx.screenshotdepth_technique, true);
@@ -372,6 +364,13 @@ static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
     // Disable keyboard shortcuts while typing into input boxes
     ctx.ignore_shortcuts = ImGui::IsAnyItemActive();
 }
+static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
+{
+    reshade::api::device *device = runtime->get_device();
+    screenshot_context &ctx = device->get_private_data<screenshot_context>();
+
+    ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14");
+}
 
 static const ImVec4 COLOR_RED = ImColor(240, 100, 100);
 static const ImVec4 COLOR_YELLOW = ImColor(204, 204, 0);
@@ -381,77 +380,89 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
 
+    bool hide_osd = false;
     switch (ctx.config.show_osd)
     {
         case decltype(screenshot_config::show_osd)::hidden:
-            return;
+            hide_osd = true;
+            break;
         case decltype(screenshot_config::show_osd)::show_osd_always:
+            hide_osd = false;
             break;
         case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active:
-            if (ctx.active_screenshot == nullptr && ctx.screenshot_state.error_occurs == 0 && ctx.screenshots.empty())
-                return;
+            hide_osd = ctx.active_screenshot == nullptr && ctx.screenshot_state.error_occurs == 0 && ctx.screenshots.empty();
             break;
         case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active_ignore_errors:
-            if (ctx.active_screenshot == nullptr)
-                return;
+            hide_osd = ctx.active_screenshot == nullptr;
             break;
     }
 
-    if (ctx.active_screenshot)
+    if (!hide_osd && ctx.active_screenshot)
     {
         ImGui::Text("%s", _("Active set: "));
         ImGui::SameLine(0, 0);
         ImGui::TextUnformatted(ctx.active_screenshot->name.c_str(), ctx.active_screenshot->name.c_str() + ctx.active_screenshot->name.size());
     }
 
-    float fraction;
-    std::string str;
-    if (ctx.active_screenshot != nullptr)
+    if (!hide_osd)
     {
-        fraction = (float)((ctx.current_frame - ctx.screenshot_begin_frame) % ctx.active_screenshot->repeat_interval) / ctx.active_screenshot->repeat_interval;
-        str = std::format(ctx.active_screenshot->repeat_count != 0 ? _("%u of %u") : _("%u times (Infinite mode)"), ctx.screenshot_repeat_index, ctx.active_screenshot->repeat_count);
-    }
-    else
-    {
-        fraction = 1.0f;
-        str = _("ready");
-    }
-    ImGui::ProgressBar(fraction, ImVec2(ImGui::GetContentRegionAvail().x, 0), "");
-    ImGui::SameLine(15);
-    ImGui::Text("%*s", str.size(), str.c_str());
-
-    if (!ctx.screenshots.empty())
-    {
-        uint64_t using_bytes = 0;
-        std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
-            [&using_bytes](const screenshot &screenshot) {
-                using_bytes += screenshot.pixels.size();
-            });
-        str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
+        float fraction;
+        std::string str;
+        if (ctx.active_screenshot != nullptr)
+        {
+            fraction = (float)((ctx.current_frame - ctx.screenshot_begin_frame) % ctx.active_screenshot->repeat_interval) / ctx.active_screenshot->repeat_interval;
+            str = std::format(ctx.active_screenshot->repeat_count != 0 ? _("%u of %u") : _("%u times (Infinite mode)"), ctx.screenshot_repeat_index, ctx.active_screenshot->repeat_count);
+        }
+        else
+        {
+            fraction = 1.0f;
+            str = _("ready");
+        }
+        ImGui::ProgressBar(fraction, ImVec2(ImGui::GetContentRegionAvail().x, 0), "");
+        ImGui::SameLine(15);
         ImGui::Text("%*s", str.size(), str.c_str());
+
+        if (!ctx.screenshots.empty())
+        {
+            uint64_t using_bytes = 0;
+            std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
+                [&using_bytes](const screenshot &screenshot) {
+                        using_bytes += screenshot.pixels.size();
+                });
+            str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
+            ImGui::Text("%*s", str.size(), str.c_str());
+        }
     }
 
-    if (ctx.active_screenshot != nullptr &&
-        ctx.screenshot_state.last_elapsed / std::max<size_t>(1, ctx.screenshot_worker_threads) > (ctx.capture_time - ctx.capture_last).count())
-        ImGui::TextColored(COLOR_YELLOW, "%s", _("Processing of screenshots is too slow!"));
+    if (!hide_osd)
+    {
+        if (ctx.active_screenshot != nullptr &&
+            ctx.screenshot_state.last_elapsed / std::max<size_t>(1, ctx.screenshot_worker_threads) > (ctx.capture_time - ctx.capture_last).count())
+            ImGui::TextColored(COLOR_YELLOW, "%s", _("Processing of screenshots is too slow!"));
 
-    if (ctx.screenshot_state.error_occurs > 0)
-        ImGui::TextColored(COLOR_YELLOW, "%s", _("Failed. Check details in the log."));
+        if (ctx.screenshot_state.error_occurs > 0)
+            ImGui::TextColored(COLOR_YELLOW, "%s", _("Failed. Check details in the log."));
 
-    if ((ctx.is_screenshot_enable(screenshot_kind::before) || ctx.is_screenshot_enable(screenshot_kind::after)) &&
-        (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
-        !runtime->get_effects_state())
-        ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Before\" and \"After\" captures because effects are disabled."));
+        if ((ctx.is_screenshot_enable(screenshot_kind::before) || ctx.is_screenshot_enable(screenshot_kind::after)) &&
+            (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
+            !runtime->get_effects_state())
+            ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Before\" and \"After\" captures because effects are disabled."));
 
-    if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
-        (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
-        !runtime->get_effects_state())
-        ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Depth\" capture because effects are disabled."));
+        if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
+            (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
+            !runtime->get_effects_state())
+            ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Depth\" capture because effects are disabled."));
+    }
 
-    if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
-        runtime->get_effects_state() &&
-        ctx.screenshotdepth_technique.handle == 0)
-        ImGui::TextColored(COLOR_RED, "%s", _("[BUGCHECK] \"Depth\" capture cannot be performed."));
+    // -------------------------------------
+    // Important Errors
+    // -------------------------------------
+
+    if (ctx.screenshotdepth_technique.handle == 0)
+    {
+        ImGui::TextColored(COLOR_RED, "%s", _("[ALERT] \"Depth\" capture cannot be performed."));
+        ImGui::TextColored(COLOR_RED, "%s", _("Check the log for additional installation steps."));
+    }
 }
 static void draw_setting_window(reshade::api::effect_runtime *runtime)
 {
@@ -696,7 +707,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 );
                 if (screenshot_myset.image_format == 0 || screenshot_myset.image_format == 1)
                 {
-                    if (ImGui::TreeNodeEx(_("Libpng settings###Libpng settings"), ImGuiTreeNodeFlags_NoTreePushOnOpen))
+                    if (ImGui::TreeNodeEx(_("libpng settings###AdvancedSettingsLibpng"), ImGuiTreeNodeFlags_NoTreePushOnOpen))
                     {
                         ImGui::TextUnformatted(_("Presets:")); ImGui::SameLine();
                         if (ImGui::SmallButton(_("High speed###PresetsHighSpeed")))
@@ -818,6 +829,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         reshade::register_event<reshade::addon_event::reshade_finish_effects>(on_finish_effects);
         reshade::register_event<reshade::addon_event::reshade_overlay>(on_reshade_overlay);
         reshade::register_event<reshade::addon_event::reshade_present>(on_reshade_present);
+        reshade::register_event<reshade::addon_event::reshade_reloaded_effects>(on_reshade_reloaded_effects);
         reshade::register_overlay("OSD", draw_osd_window);
         reshade::register_overlay("Settings###settings", draw_setting_window);
     }

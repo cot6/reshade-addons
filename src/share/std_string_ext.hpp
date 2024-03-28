@@ -17,6 +17,6 @@ namespace std
 	template<class... Args>
 	std::wstring format(wstring_view fmt, const Args &... args) noexcept {
 		std::wstring s(static_cast<size_t>(::_scwprintf(fmt.data(), args...)), L'\0');
-		return ::_snwprintf(s.data(), s.size(), fmt.data(), args...), s;
+		return ::swprintf(s.data(), s.size() + 1, fmt.data(), args...), s;
 	}
 }

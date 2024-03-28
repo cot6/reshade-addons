@@ -330,6 +330,8 @@ public:
     explicit ini_file(const std::filesystem::path &path) noexcept;
     ~ini_file() noexcept;
 
+    bool save() noexcept;
+
     /// <summary>   
     /// Gets the specified INI file from cache or opens it when it was not cached yet.
     /// WARNING: Reference is only valid until the next 'load_cache' call.
@@ -343,7 +345,6 @@ public:
 
 private:
     void load() noexcept;
-    bool save() noexcept;
 
     std::filesystem::path _path;
     static std::recursive_mutex _static_mutex;
