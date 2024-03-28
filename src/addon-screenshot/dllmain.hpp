@@ -40,7 +40,7 @@ public:
     size_t screenshot_worker_threads = 0;
 
     bool ignore_shortcuts = false;
-    bool before_screenshot_enable_effects = false;
+    bool effects_state_activated = false;
 
     DWORD playsound_flags = 0;
 

@@ -287,13 +287,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
             ctx.playsound_flags = 0;
         }
 
-        if (ctx.screenshotdepth_technique.handle != 0 &&
-            runtime->get_technique_state(ctx.screenshotdepth_technique) != false)
-            runtime->set_technique_state(ctx.screenshotdepth_technique, false);
-
-        if (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_while_myset_is_active && !ctx.before_screenshot_enable_effects &&
-            ctx.is_screenshot_enable(screenshot_kind::after) &&
-            runtime->get_effects_state())
+        if (ctx.effects_state_activated)
             runtime->set_effects_state(false);
 
         ctx.active_screenshot = nullptr;
@@ -323,6 +317,12 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                 if (ctx.active_screenshot == &screenshot_myset)
                 {
                     ctx.active_screenshot = nullptr;
+
+                    if (ctx.effects_state_activated)
+                    {
+                        ctx.effects_state_activated = false;
+                        runtime->set_effects_state(false);
+                    }
                 }
                 else
                 {
@@ -332,7 +332,6 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
                     ctx.screenshot_state.reset();
 
-                    ctx.before_screenshot_enable_effects = runtime->get_effects_state();
                     ctx.screenshot_begin_frame = ctx.current_frame + 1;
                     ctx.screenshot_repeat_index = 0;
 
@@ -341,15 +340,20 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                     else
                         ctx.screenshot_worker_threads = std::thread::hardware_concurrency();
 
-                    if (ctx.screenshotdepth_technique.handle != 0 &&
-                        runtime->get_technique_state(ctx.screenshotdepth_technique) == false)
-                        runtime->set_technique_state(ctx.screenshotdepth_technique, true);
-
-                    if ((ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
-                        ctx.is_screenshot_enable(screenshot_kind::after) &&
-                        !runtime->get_effects_state())
-                        runtime->set_effects_state(true);
-
+                    switch (ctx.config.turn_on_effects)
+                    {
+                        case decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset:
+                        case decltype(screenshot_config::turn_on_effects)::turn_on_while_myset_is_active:
+                            if (ctx.is_screenshot_enable(screenshot_kind::after) && !runtime->get_effects_state())
+                            {
+                                ctx.effects_state_activated = true;
+                                runtime->set_effects_state(true);
+                            }
+                            break;
+                        default:
+                            ctx.effects_state_activated = false;
+                            break;
+                    }
                     break;
                 }
             }
