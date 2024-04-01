@@ -56,7 +56,11 @@
       </AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
-      <PreprocessorDefinitions>_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>
+        RESHADE_LOCALIZATION;
+        _WIN32;
+        %(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
