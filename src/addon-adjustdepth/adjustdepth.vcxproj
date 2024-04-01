@@ -62,19 +62,19 @@
     </Link>
     <PreBuildEvent>
       <Command>"pwsh.exe" "-File" "$(ProjectDir)..\..\tools\verbuild.ps1"</Command>
-      <Message>開発環境からメタ情報を取得し、バージョン情報 version.h を作成します。</Message>
+      <Message>Get meta data from the environment and generate the version.h</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <PostBuildEvent>
       <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App\" /Y /Q</Command>
-      <Message>ビルドしたアドオン ファイルをReShadeのデバッグ アプリケーション フォルダに配置します。</Message>
+      <Message>Place the built add-on files to the Debug folder.</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <PostBuildEvent>
       <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\$(ProjectName)\bin\" /Y /Q</Command>
-      <Message>ビルドしたアドオン ファイルをデプロイ ソース フォルダに配置します。</Message>
+      <Message>Place the built add-on file to the deployment source folder.</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

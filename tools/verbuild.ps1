@@ -21,7 +21,7 @@ if ( $( git describe --match "v*" --tags --always ) -notlike 'v*' )
     # --------------------------------------
     # 結果: 失敗
 
-    Write-Error ブランチからバージョン` タグが見つからないか、見つかったタグがバージョン形式ではありません。` $( git describe --tags --always )` はSHA-1またはタグです。
+    Write-Error "The version tag is missing in the branch, or the detected tag is not formatted as version. $( git describe --tags --always ) is SHA-1 or tag."
 }
 
 # --------------------------------------
@@ -50,15 +50,15 @@ $developingStr = $developing ? ' UNCOMMITED' : ''
 $fileFlags = [ArrayList]::new()
 if ($developing) {
     $fileFlags.Add('VS_FF_PATCHED') | Out-Null
-    Write-Warning 'コミットされていない変更が含まれています。リリースする前にコミットIDを確定して下さい。'
+    Write-Warning 'Uncommitted changes exist. Please commit before releasing.'
 }
 if ($tagRange) {
     $fileFlags.Add('VS_FF_PRERELEASE') | Out-Null
-    Write-Warning 'リリースの準備ができていません。バージョンの最下位は 0 であるべきです。'
+    Write-Warning 'Not ready for release. The last digit of the version should be 0.'
 }
 if (-not $Env:CI -and -not $Env:APPVEYOR) {
     $fileFlags.Add('VS_FF_PRIVATEBUILD') | Out-Null
-    Write-Warning '個人開発機でビルドされました。バイナリ互換性、依存関係、その他に因る障害が発生する可能性があります。'
+    Write-Warning 'Building on a personal development machine. You may encounter issues caused by binary compatibility, dependencies, and other factors.'
 }
 if ($fileFlags.Count -lt 1) {
     $fileFlags.Add('0x0L') | Out-Null

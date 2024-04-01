@@ -12,7 +12,7 @@
 #include <reshade.hpp>
 
 #if !defined(_DEBUG) && ADDON_MAJOR < RESHADE_API_VERSION
-#error メジャー バージョンはAPI改訂番号と同一である必要があります。
+// The major version must be the same as the API revision number.
 #endif
 
 struct __declspec(uuid("a0ca6a72-49f2-4440-9260-bed0f46263d2")) adjust_context

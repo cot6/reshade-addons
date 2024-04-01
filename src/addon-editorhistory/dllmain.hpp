@@ -14,7 +14,7 @@
 #include <vector>
 
 #if !defined(_DEBUG) && ADDON_MAJOR < RESHADE_API_VERSION
-#error メジャー バージョンはAPI改訂番号と同一である必要があります。
+// The major version must be the same as the API revision number.
 #endif
 
 constexpr size_t HISTORY_LIMIT = 1000;

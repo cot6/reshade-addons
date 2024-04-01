@@ -14,7 +14,7 @@
 #include <list>
 
 #if !defined(_DEBUG) && ADDON_MAJOR < RESHADE_API_VERSION
-#error メジャー バージョンはAPI改訂番号と同一である必要があります。
+// The major version must be the same as the API revision number.
 #endif
 constexpr uint8_t s_runtime_id[16] = { 0x02, 0x82, 0xFF, 0x77, /**/ 0xEC, 0x5B, /**/ 0xAD, 0x42, /**/ 0x8C, 0xE0, 0x39, 0x7F, 0x3E, 0x84, 0xEA, 0xA6 };
 
