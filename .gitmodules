@@ -11,3 +11,6 @@
 	path = deps/utfcpp
 	url = https://github.com/nemtrif/utfcpp.git
 	fetchRecurseSubmodules = false
+[submodule "deps/reshade.v10"]
+	path = deps/reshade.v10
+	url = https://github.com/crosire/reshade.git

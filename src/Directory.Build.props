@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ReShadeModuleName Condition="'$(ReShadeModuleName)'==''">reshade</ReShadeModuleName>
+  </PropertyGroup>
   <PropertyGroup Label="Globals">
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformVersion Condition="'$(VisualStudioVersion)'&gt;='16.0'">10.0</WindowsTargetPlatformVersion>
@@ -21,9 +24,9 @@
     </BuildLog>
     <ClCompile>
       <AdditionalIncludeDirectories>
-        $(MSBuildThisFileDirectory)..\deps\reshade\include;
-        $(MSBuildThisFileDirectory)..\deps\reshade\res\fonts;
-        $(MSBuildThisFileDirectory)..\deps\reshade\deps\imgui;
+        $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\include;
+        $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\res\fonts;
+        $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\deps\imgui;
         $(MSBuildThisFileDirectory)..\deps\fpng\src;
         $(MSBuildThisFileDirectory)..\deps\utfcpp\source;
         $(MSBuildThisFileDirectory)share;
