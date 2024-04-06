@@ -90,6 +90,8 @@ BEGIN
 20932 "Add set:"
 9224 "Click to set keyboard shortcut"
 38313 "Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut."
+42682 "Yes"
+35957 "No"
 
 END
 

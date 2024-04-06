@@ -68,18 +68,22 @@ inline bool screenshot_context::is_screenshot_frame(screenshot_kind kind) const 
 
 static void on_init(reshade::api::effect_runtime *runtime)
 {
+    ini_file::flush_cache();
+
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->create_private_data<screenshot_context>();
 
     ctx.active_screenshot = nullptr;
 
     ctx.environment.load(runtime);
-    ctx.config.load(ini_file::load_cache(ctx.environment.reshade_base_path / L"ReShade_Addon_Screenshot.ini"));
+    ctx.config.load(ini_file::load_cache(ctx.environment.addon_screenshot_config_path));
 
     ctx.screenshot_begin_frame = std::numeric_limits<decltype(ctx.screenshot_begin_frame)>::max();
 }
 static void on_destroy(reshade::api::device *device)
 {
+    ini_file::flush_cache();
+
     device->destroy_private_data<screenshot_context>();
 }
 
@@ -93,6 +97,8 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
     reshade::api::effect_runtime *runtime = reinterpret_cast<reshade::api::effect_runtime *>(effect_runtime);
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     ctx.current_frame++;
     ctx.present_time = std::chrono::system_clock::now();
@@ -126,6 +132,8 @@ static void on_begin_effects(reshade::api::effect_runtime *runtime, reshade::api
 {
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     if (ctx.is_screenshot_frame(screenshot_kind::before))
     {
@@ -137,6 +145,8 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
 {
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     if (ctx.is_screenshot_frame(screenshot_kind::after))
     {
@@ -224,6 +234,8 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     if (ctx.is_screenshot_frame(screenshot_kind::overlay))
     {
@@ -364,6 +376,8 @@ static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     // Disable keyboard shortcuts while typing into input boxes
     ctx.ignore_shortcuts = ImGui::IsAnyItemActive();
@@ -372,6 +386,8 @@ static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14");
 }
@@ -383,6 +399,8 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     bool hide_osd = false;
     switch (ctx.config.show_osd)
@@ -472,6 +490,9 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
+
     bool modified = false;
 
     std::list<std::pair<std::string, reshade::api::effect_technique>> techniques;

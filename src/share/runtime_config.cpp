@@ -87,7 +87,7 @@ void ini_file::load() noexcept
     // Create read content view
     std::string_view data(mem.get(), file_size);
 
-    ini_data::section *section = nullptr;
+    ini_data::table *section = nullptr;
     for (size_t next = 0; next = std::min(std::min(data.find_first_of('\n'), data.size()), data.size()), !data.empty(); data = data.substr(std::min(next + 1, data.size())))
     {
         const std::string_view line = trim({ data.data(), next }, " \t\r");
@@ -113,7 +113,7 @@ void ini_file::load() noexcept
         if (section == nullptr)
             section = &_sections[{}];
 
-        if (ini_data::value &elements = (*section)[key]; elements.empty())
+        if (ini_data::elements &elements = (*section)[key]; elements.empty())
         {
             for (size_t offset = 0, found = 0; found = std::min(std::min(value.find_first_of(',', offset), value.size()), value.size()), !value.empty();)
             {

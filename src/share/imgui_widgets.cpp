@@ -10,6 +10,7 @@
 #include "imgui_widgets.hpp"
 #include "localization.hpp"
 
+#include <forkawesome.h>
 #include <imgui.h>
 #include <reshade.hpp>
 
@@ -44,10 +45,10 @@ bool reshade::imgui::key_input_box(const char *name, const char *hint, unsigned 
             }
         }
     }
-    else if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+    else if (hint && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
     {
         std::string tooltip = hint;
-        tooltip += "\n\n";
+        tooltip.append(2, '\n');
         tooltip += _("Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut.");
         ImGui::SetTooltip("%*s", tooltip.size(), tooltip.c_str());
     }
@@ -75,6 +76,52 @@ bool reshade::imgui::radio_list(const char *label, const std::string_view ui_ite
     ImGui::TextUnformatted(label);
 
     ImGui::EndGroup();
+
+    return res;
+}
+
+bool reshade::imgui::popup_button(const char *label, float width, ImGuiWindowFlags flags)
+{
+    if (ImGui::Button(label, ImVec2(width, 0)))
+        ImGui::OpenPopup(label); // Popups can have the same ID as other items without conflict
+    return ImGui::BeginPopup(label, flags);
+}
+
+bool reshade::imgui::confirm_button(const char *label, float width, const char *message, ...)
+{
+    bool res = false;
+
+    if (popup_button(label, width))
+    {
+        va_list args;
+        va_start(args, message);
+        ImGui::TextV(message, args);
+        va_end(args);
+
+        const float button_width = (ImGui::GetContentRegionAvail().x / 2) - ImGui::GetStyle().ItemInnerSpacing.x;
+
+        std::string button_label;
+        button_label = ICON_FK_OK " ";
+        button_label += _("Yes");
+
+        if (ImGui::Button(button_label.c_str(), ImVec2(button_width, 0)))
+        {
+            ImGui::CloseCurrentPopup();
+            res = true;
+        }
+
+        ImGui::SameLine();
+
+        button_label = ICON_FK_CANCEL " ";
+        button_label += _("No");
+
+        if (ImGui::Button(button_label.c_str(), ImVec2(button_width, 0)))
+        {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
 
     return res;
 }

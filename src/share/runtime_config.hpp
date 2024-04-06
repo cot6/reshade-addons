@@ -30,6 +30,17 @@ inline std::string_view trim(std::string_view str, const char chars[] = " \t") n
 class ini_data
 {
 public:
+    /// <summary>
+    /// Describes a single value in an INI file.
+    /// </summary>
+    using elements = std::vector<std::string>;
+    using sections = std::vector<std::string>;
+    /// <summary>
+    /// Describes a section of multiple key/value pairs in an INI file.
+    /// </summary>
+    using table = std::unordered_map<std::string, elements>;
+    using entry = std::pair<std::string, elements>;
+
     ini_data() = default;
 
     bool empty() const noexcept
@@ -103,7 +114,7 @@ public:
         return true;
     }
 
-    void get(std::vector<std::string> &sections) const noexcept
+    void get(sections &sections) const noexcept
     {
         std::lock_guard lock(const_cast<std::recursive_mutex &>(_mutex));
 
@@ -113,7 +124,7 @@ public:
         for (const auto &section : _sections)
             sections.push_back(section.first);
     }
-    void get(const std::string &section, std::vector<std::string> &keys) const noexcept
+    void get(const std::string &section, elements &keys) const noexcept
     {
         std::lock_guard lock(const_cast<std::recursive_mutex &>(_mutex));
 
@@ -126,18 +137,17 @@ public:
         for (const auto &it2 : it1->second)
             keys.emplace_back(it2.first);
     }
-    void get(const std::string &section, std::vector<std::pair<std::string, std::vector<std::string>>> &pairs) const noexcept
+    void get(const std::string &section, table &table) const noexcept
     {
         std::lock_guard lock(const_cast<std::recursive_mutex &>(_mutex));
 
-        pairs.clear();
+        table.clear();
         const auto it1 = _sections.find(section);
         if (it1 == _sections.end())
             return;
 
-        pairs.reserve(it1->second.size());
-        for (const auto it2 : it1->second)
-            pairs.emplace_back(it2);
+        table.reserve(it1->second.size());
+        table = it1->second;
     }
 
     bool set(const std::string &section) noexcept
@@ -208,8 +218,20 @@ public:
         _modified_at = std::filesystem::file_time_type::clock::now();
         _modified = true;
     }
+    void set(const std::string &section, const table &table) noexcept
+    {
+        std::lock_guard lock(_mutex);
+
+        auto &v = _sections[section];
+        v.clear();
+        for (const entry &entry : table)
+            v[entry.first] = entry.second;
+
+        _modified_at = std::filesystem::file_time_type::clock::now();
+        _modified = true;
+    }
     template <>
-    void set(const std::string &section, const std::string &key, const std::vector<std::string> &values) noexcept
+    void set(const std::string &section, const std::string &key, const elements &values) noexcept
     {
         std::lock_guard lock(_mutex);
 
@@ -219,12 +241,12 @@ public:
         _modified_at = std::filesystem::file_time_type::clock::now();
         _modified = true;
     }
-    void set(const std::string &section, const std::string &key, std::vector<std::string> &&values) noexcept
+    void set(const std::string &section, const std::string &key, elements &&values) noexcept
     {
         std::lock_guard lock(_mutex);
 
         auto &v = _sections[section][key];
-        v = std::forward<std::vector<std::string>>(values);
+        v = std::forward<elements>(values);
 
         _modified_at = std::filesystem::file_time_type::clock::now();
         _modified = true;
@@ -281,42 +303,33 @@ public:
         return it1->second.size();
     }
 
-protected:
-
     template <typename T>
-    static T convert(const std::vector<std::string> &values, size_t i) noexcept
+    static T convert(const elements &values, size_t i) noexcept
     {
         T v{};
         return i < values.size() && !values[i].empty() ? std::from_chars(values[i].data(), values[i].data() + values[i].size() + 1, v), v : v;
     }
     template <>
-    static bool convert(const std::vector<std::string> &values, size_t i) noexcept
+    static bool convert(const elements &values, size_t i) noexcept
     {
         return i < values.size() && !values[i].empty() && (values[i][0] == 't' || values[i][0] == 'T' || convert<long long>(values, i) != 0ll);
     }
     template <>
-    static std::string convert(const std::vector<std::string> &values, size_t i) noexcept
+    static std::string convert(const elements &values, size_t i) noexcept
     {
         return i < values.size() && !values[i].empty() ? values[i] : std::string{};
     }
     template <>
-    static std::filesystem::path convert(const std::vector<std::string> &values, size_t i) noexcept
+    static std::filesystem::path convert(const elements &values, size_t i) noexcept
     {
         return i < values.size() && !values[i].empty() ? std::filesystem::u8path(values[i]) : std::filesystem::path{};
     }
 
-    /// <summary>
-    /// Describes a single value in an INI file.
-    /// </summary>
-    using value = std::vector<std::string>;
-    /// <summary>
-    /// Describes a section of multiple key/value pairs in an INI file.
-    /// </summary>
-    using section = std::unordered_map<std::string, value>;
+protected:
 
     bool _modified = false;
     std::filesystem::file_time_type _modified_at;
-    std::unordered_map<std::string, section> _sections;
+    std::unordered_map<std::string, table> _sections;
     std::recursive_mutex _mutex;
 };
 
@@ -329,7 +342,6 @@ public:
     /// <param name="path">The path to the INI file to access.</param>
     explicit ini_file(const std::filesystem::path &path) noexcept;
     ~ini_file() noexcept;
-
     bool save() noexcept;
 
     /// <summary>   

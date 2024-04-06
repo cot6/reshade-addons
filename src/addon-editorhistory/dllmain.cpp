@@ -16,6 +16,8 @@ HMODULE g_module_handle;
 static bool on_reorder_techniques(reshade::api::effect_runtime *runtime, size_t count, reshade::api::effect_technique *sorting_techniques)
 {
     history_context &ctx = runtime->get_private_data<history_context>();
+    if (std::addressof(ctx) == nullptr)
+        return false;
 
     std::vector<reshade::api::effect_technique> sorted, sorting;
     runtime->enumerate_techniques(nullptr,
@@ -60,6 +62,9 @@ static void on_destroy(reshade::api::effect_runtime *runtime)
 static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
 {
     history_context &ctx = runtime->get_private_data<history_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
+
     size_t techniques_count = 0;
 
     runtime->enumerate_techniques(nullptr, [&techniques_count](reshade::api::effect_runtime *, reshade::api::effect_technique) { techniques_count++; });
@@ -74,6 +79,8 @@ static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
 static void on_reshade_set_current_preset_path(reshade::api::effect_runtime *runtime, const char *)
 {
     history_context &ctx = runtime->get_private_data<history_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     ctx.histories.clear();
     ctx.history_pos = 0;
@@ -94,6 +101,9 @@ static bool on_set_uniform_value(reshade::api::effect_runtime *runtime, reshade:
         return false;
 
     history_context &ctx = runtime->get_private_data<history_context>();
+    if (std::addressof(ctx) == nullptr)
+        return false;
+
     ctx.was_updated = true;
 
     reshade::api::format basetype;
@@ -174,6 +184,9 @@ static bool on_set_technique_state(reshade::api::effect_runtime *runtime, reshad
         return false;
 
     history_context &ctx = runtime->get_private_data<history_context>();
+    if (std::addressof(ctx) == nullptr)
+        return false;
+
     ctx.was_updated = true;
 
     char technique_name[128] = "";
@@ -216,6 +229,8 @@ static void draw_history_window(reshade::api::effect_runtime *runtime)
     size_t selected_pos = std::numeric_limits<size_t>::max();
 
     history_context &ctx = runtime->get_private_data<history_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     bool selected = ctx.history_pos == ctx.histories.size();
     if (ImGui::Selectable(_("End of Undo"), selected))
@@ -424,6 +439,9 @@ static void draw_history_window(reshade::api::effect_runtime *runtime)
 static bool on_reshade_open_overlay(reshade::api::effect_runtime *runtime, bool open, reshade::api::input_source)
 {
     history_context &ctx = runtime->get_private_data<history_context>();
+    if (std::addressof(ctx) == nullptr)
+        return false;
+
     ctx.show_overlay = open;
 
     return false;
@@ -431,6 +449,8 @@ static bool on_reshade_open_overlay(reshade::api::effect_runtime *runtime, bool 
 static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
 {
     history_context &ctx = runtime->get_private_data<history_context>();
+    if (std::addressof(ctx) == nullptr)
+        return;
 
     if (!ctx.show_overlay)
         return;

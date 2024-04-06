@@ -24,9 +24,10 @@ function compute_crc16 {
 }
 
 foreach ($proj in @( `
-	@{Folder = "$(git rev-parse --show-toplevel)/src/addon-adjustdepth"; Include = @('dllmain.cpp')}, `
+	@{Folder = "$(git rev-parse --show-toplevel)/src/addon-adjustdepth"; Include = @('dllmain.cpp', '..\share\imgui_widgets.cpp')}, `
 	@{Folder = "$(git rev-parse --show-toplevel)/src/addon-editorhistory"; Include = @('dllmain.cpp')}, `
-	@{Folder = "$(git rev-parse --show-toplevel)/src/addon-screenshot"; Include = @('dllmain.cpp', 'imgui_widgets.cpp')}))
+	@{Folder = "$(git rev-parse --show-toplevel)/src/addon-screenshot"; Include = @('dllmain.cpp', '..\share\imgui_widgets.cpp')}, `
+	@{Folder = "$(git rev-parse --show-toplevel)/src/addon-themedesigner"; Include = @('dllmain.cpp')}))
 {
 	$strings = ""
     $message = ""

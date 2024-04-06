@@ -4,10 +4,11 @@
  */
 
 #pragma once
-#include <string>
-#include <vector>
 
 #include "res\version.h"
+#include "adjustdepth.hpp"
+
+#include "runtime_config.hpp"
 
 #include <reshade.hpp>
 
@@ -22,4 +23,10 @@ struct __declspec(uuid("a0ca6a72-49f2-4440-9260-bed0f46263d2")) adjust_context
     std::vector<std::pair<reshade::api::effect_uniform_variable, std::string>> saving_variables;
     bool ignore_preprocessor_definitions;
     bool saving_preprocessor_definitions;
+
+    adjustdepth_config config;
+    adjustdepth_environment environment;
+
+    bool ignore_shortcuts = false;
+    unsigned int overwrite_key_data[4] = {};
 };

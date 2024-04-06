@@ -14,6 +14,13 @@ BEGIN
 
 12556 "Save and complete adjustments"
 33911 "Always save adjustments is active"
+56232 "Save the current adjustments to the shortcut key.\nIf the shortcut key will be pressed later, adjustments will be overwritten immediately with the saved contents."
+14134 "Create a shortcut to apply the current adjustments."
+13086 "Do you really want to remove the shortcut '%s'?"
+9224 "Click to set keyboard shortcut"
+38313 "Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut."
+42682 "Yes"
+35957 "No"
 
 END
 

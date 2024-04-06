@@ -63,13 +63,16 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <PostBuildEvent>
-      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App\" /Y /Q</Command>
+      <Command>
+        "XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App\" /Y /Q
+        "XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\debug\bin\" /Y /Q
+      </Command>
       <Message>Place the built add-on files to the Debug folder.</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <PostBuildEvent>
-      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\$(ProjectName)\bin\" /Y /Q</Command>
+      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\bin\" /Y /Q</Command>
       <Message>Place the built add-on file to the deployment source folder.</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>

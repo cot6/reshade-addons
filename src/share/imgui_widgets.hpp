@@ -25,4 +25,15 @@ namespace reshade::imgui
 	/// <param name="ui_items">List of labels for the items, separated with '\0' characters.</param>
 	/// <param name="v">Index of the active item in the <paramref name="ui_items"/> list.</param>
 	bool radio_list(const char *label, const std::string_view ui_items, int &v);
+
+    /// <summary>
+    /// Convenience function which adds a button that when pressed opens a popup window.
+    /// Begins the popup window and returns <see langword="true"/> if it is open. Don't forget to call 'ImGui::EndPopup'.
+    /// </summary>
+    bool popup_button(const char *label, float width = 0.0f, ImGuiWindowFlags flags = 0);
+
+    /// <summary>
+    /// Adds a button that asks for confirmation when pressed. Only returns <see langword="true"/> once that is acknowledged.
+    /// </summary>
+    bool confirm_button(const char *label, float width, const char *message, ...);
 }

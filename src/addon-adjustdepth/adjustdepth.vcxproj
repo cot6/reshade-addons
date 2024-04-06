@@ -67,27 +67,38 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <PostBuildEvent>
-      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App\" /Y /Q</Command>
+      <Command>
+        "XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App\" /Y /Q
+        "XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\debug\bin\" /Y /Q
+      </Command>
       <Message>Place the built add-on files to the Debug folder.</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <PostBuildEvent>
-      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\$(ProjectName)\bin\" /Y /Q</Command>
+      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\bin\" /Y /Q</Command>
       <Message>Place the built add-on file to the deployment source folder.</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\deps\reshade\res\fonts\forkawesome.h" />
     <ClInclude Include="..\share\dll_resources.hpp" />
+    <ClInclude Include="..\share\imgui_widgets.hpp" />
+    <ClInclude Include="..\share\input.hpp" />
     <ClInclude Include="..\share\localization.hpp" />
+    <ClInclude Include="..\share\runtime_config.hpp" />
     <ClInclude Include="..\share\std_string_ext.hpp" />
+    <ClInclude Include="adjustdepth.hpp" />
     <ClInclude Include="dllmain.hpp" />
     <ClInclude Include="res\resource.h" />
     <ClInclude Include="res\version.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\share\dll_resources.cpp" />
+    <ClCompile Include="..\share\imgui_widgets.cpp" />
+    <ClCompile Include="..\share\input.cpp" />
+    <ClCompile Include="..\share\runtime_config.cpp" />
+    <ClCompile Include="adjustdepth.cpp" />
     <ClCompile Include="dllmain.cpp" />
   </ItemGroup>
   <ItemGroup>

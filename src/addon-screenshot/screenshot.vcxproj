@@ -74,7 +74,10 @@
       <AdditionalDependencies>zlibd.lib;libpng16d.lib;tiffd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App\" /Y /Q</Command>
+      <Command>
+        "XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\deps\reshade\bin\$(Platform)\$(Configuration) App\" /Y /Q
+        "XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\debug\bin\" /Y /Q
+      </Command>
       <Message>Place the built add-on files to the Debug folder.</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -83,30 +86,30 @@
       <AdditionalDependencies>zlib.lib;libpng16.lib;tiff.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\$(ProjectName)\bin\" /Y /Q</Command>
+      <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\bin\" /Y /Q</Command>
       <Message>Place the built add-on file to the deployment source folder.</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\deps\fpng\src\fpng.h" />
     <ClInclude Include="..\share\dll_resources.hpp" />
+    <ClInclude Include="..\share\imgui_widgets.hpp" />
+    <ClInclude Include="..\share\input.hpp" />
     <ClInclude Include="..\share\runtime_config.hpp" />
     <ClInclude Include="..\share\std_string_ext.hpp" />
     <ClInclude Include="dllmain.hpp" />
-    <ClInclude Include="imgui_widgets.hpp" />
-    <ClInclude Include="input.hpp" />
+    <ClInclude Include="screenshot.hpp" />
     <ClInclude Include="res\resource.h" />
     <ClInclude Include="res\version.h" />
-    <ClInclude Include="screenshot.hpp" />
-    <ClInclude Include="..\..\deps\fpng\src\fpng.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\deps\fpng\src\fpng.cpp" />
     <ClCompile Include="..\share\dll_resources.cpp" />
+    <ClCompile Include="..\share\imgui_widgets.cpp" />
+    <ClCompile Include="..\share\input.cpp" />
     <ClCompile Include="..\share\runtime_config.cpp" />
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="imgui_widgets.cpp" />
-    <ClCompile Include="input.cpp" />
     <ClCompile Include="screenshot.cpp" />
-    <ClCompile Include="..\..\deps\fpng\src\fpng.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="res\resource.rc" />
