@@ -1,6 +1,9 @@
 [submodule "deps/reshade"]
 	path = deps/reshade
 	url = https://github.com/cot6/reshade.git
+[submodule "deps/reshade.v10"]
+	path = deps/reshade.v10
+	url = https://github.com/cot6/reshade.git
 [submodule "deps/vcpkg"]
 	path = deps/vcpkg
 	url = https://github.com/microsoft/vcpkg.git
@@ -11,6 +14,3 @@
 	path = deps/utfcpp
 	url = https://github.com/nemtrif/utfcpp.git
 	fetchRecurseSubmodules = false
-[submodule "deps/reshade.v10"]
-	path = deps/reshade.v10
-	url = https://github.com/crosire/reshade.git
