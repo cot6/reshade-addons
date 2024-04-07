@@ -481,10 +481,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     // -------------------------------------
 
     if (ctx.screenshotdepth_technique.handle == 0)
-    {
-        ImGui::TextColored(COLOR_RED, "%s", _("[ALERT] \"Depth\" capture cannot be performed."));
-        ImGui::TextColored(COLOR_RED, "%s", _("Check the log for additional installation steps."));
-    }
+        ImGui::TextColored(COLOR_RED, "%s", _("[BUGCHECK] \"Depth\" capture cannot be performed."));
 }
 static void draw_setting_window(reshade::api::effect_runtime *runtime)
 {

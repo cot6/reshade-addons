@@ -249,31 +249,58 @@ void screenshot_environment::init()
         reshade::log_message(reshade::log_level::error, message.c_str());
     }
 
-    bool updated = false;
-    ini_file config(reshade_base_path / L"ReShade.ini");
-
+    bool effect_search_paths_updated = false;
     std::vector<std::filesystem::path> effect_search_paths;
-    config.get("GENERAL", "EffectSearchPaths", effect_search_paths);
 
+    if (size_t buffer_count = 0;
+        reshade::get_config_value(nullptr, "GENERAL", "EffectSearchPaths", nullptr, &buffer_count) && buffer_count != 0)
+    {
+        std::string buf; buf.resize(buffer_count - 1);
+        reshade::get_config_value(nullptr, "GENERAL", "EffectSearchPaths", buf.data(), &buffer_count);
+        std::wstring wbuf; wbuf.reserve(buf.size());
+        utf8::unchecked::utf8to16(buf.cbegin(), buf.cend(), std::back_inserter(wbuf));
+
+        std::filesystem::path *path = &effect_search_paths.emplace_back();
+        for (const std::wstring::value_type wc : wbuf)
+        {
+            if (wc != L'\0')
+                *path += wc;
+            else
+                path = &effect_search_paths.emplace_back();
+        }
+        if (wbuf.back() == L'\0')
+            effect_search_paths.pop_back();
+    }
+
+    // Effect Search Paths
+    // <= 10.4.2
+    // %ALLUSERSPROFILE%/ReShade Addons/Seri/Screenshot/reshade-shaders/Shaders
+    //  > 10.4.2
+    // %ALLUSERSPROFILE%/ReShade Addons/Seri/reshade-shaders/Shaders/**
+    const std::filesystem::path old_effect_search_path = addon_private_path / L"Screenshot" / L"reshade-shaders" / L"Shaders";
+    if (auto it = std::remove_if(effect_search_paths.begin(), effect_search_paths.end(),
+        [&old_effect_search_path](std::filesystem::path &path) { return path == old_effect_search_path; }); it != effect_search_paths.end())
+    {
+        effect_search_paths_updated = true;
+        effect_search_paths.erase(it, effect_search_paths.end());
+    }
     const std::filesystem::path effect_search_path = addon_private_path / L"reshade-shaders" / L"Shaders" / L"**";
     if (std::find_if(effect_search_paths.begin(), effect_search_paths.end(),
-        [&effect_search_path](std::filesystem::path &path) { return path == effect_search_path; }) != effect_search_paths.end())
+        [&effect_search_path](std::filesystem::path &path) { return path == effect_search_path; }) == effect_search_paths.end())
     {
-        updated = true;
-    }
-    else
-    {
+        effect_search_paths_updated = true;
         effect_search_paths.push_back(effect_search_path);
-        config.set("GENERAL", "EffectSearchPaths", effect_search_paths);
-
-        updated = config.save();
     }
 
-    if (!updated)
+    if (effect_search_paths_updated)
     {
-        reshade::log_message(reshade::log_level::error, "Updating process was not performed to the ReShade configuration file! Depth map images will not be saved.");
-        reshade::log_message(reshade::log_level::error, "Please add the following path to Effect search paths manually (Don't remove these characters '**'):");
-        reshade::log_message(reshade::log_level::error, effect_search_path.u8string().c_str());
+        std::string buf;
+        for (std::filesystem::path &path : effect_search_paths)
+        {
+            buf += path.u8string();
+            buf += '\0';
+        }
+        reshade::set_config_value(nullptr, "GENERAL", "EffectSearchPaths", buf.data(), buf.size());
     }
 }
 
