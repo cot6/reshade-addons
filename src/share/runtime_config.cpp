@@ -231,9 +231,9 @@ ini_file &ini_file::load_cache(const std::filesystem::path &path) noexcept
         return it.first->second.load(), it.first->second;
 }
 
-bool ini_file::flush_cache() noexcept
+bool ini_file::flush_cache(bool force) noexcept
 {
-    std::unique_lock lock(_static_mutex, std::try_to_lock);
+    std::unique_lock lock = force ? std::unique_lock(_static_mutex) : std::unique_lock(_static_mutex, std::try_to_lock);
 
     if (!lock.owns_lock())
         return false;
@@ -242,7 +242,7 @@ bool ini_file::flush_cache() noexcept
 
     // Save all files that were modified in one second intervals
     for (auto &file : g_ini_cache)
-        if (file.second._modified && (now - file.second._modified_at) > std::chrono::seconds(1))
+        if (force || (file.second._modified && (now - file.second._modified_at) > std::chrono::seconds(1)))
             file.second.save();
 
     return true;

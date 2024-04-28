@@ -49,7 +49,7 @@ BEGIN
 29421 "Capture the frame after applied the effect only if the effects are enabled."
 9403 "Capture the frame after rendered the ReShade overlay."
 26902 "Capture the depth of the frame that was used in the game only if effects are enabled."
-30665 "Macros you can add that are resolved during saving:\n  <APP>               File name of the current executable file (%s)\n  <PRESET>            File name of the current preset file (%s)\n  <INDEX[:format]>    Current number of continuous screenshot\n                      (default: D1)\n  <DATE[:format]>     Timestamp of taken screenshot\n                      (default: %%Y-%%m-%%d %%H-%%M-%%S)"
+30774 "Macros you can add that are resolved during saving:\n  <APP>               File name of the current executable file (%s)\n  <PRESET>            File name of the current preset file (%s)\n  <TOTALFRAME[:format]>\n                      Total number of screenshots\n                      (default: D1)\n  <MYSETFRAME[:format]>\n                      Total number of screenshots of myset\n                      (default: D1)\n  <TOTALTAKE[:format]>\n                      Total number of activation\n                      (default: D1)\n  <MYSETTAKE[:format]>\n                      Total number of activation of myset\n                      (default: D1)\n  <INDEX[:format]>    Current number of continuous screenshot\n                      (default: D1)\n  <DATE[:format]>     Timestamp of taken screenshot\n                      (default: %%Y-%%m-%%d %%H-%%M-%%S)"
 50611 "Select the image file format.\nHowever, the depth is always saved in TIFF format regardless of this selection."
 45395 "Repeat count"
 23862 "infinity"

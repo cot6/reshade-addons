@@ -5,11 +5,15 @@
 
 #pragma once
 
+#include <errno.h>
+#include <setjmp.h> // This for application must include this before png.h to obtain the definition of jmp_buf.
+
 #include "res\version.h"
 #include "runtime_config.hpp"
 
 #include <reshade.hpp>
 #include <utf8\unchecked.h>
+
 #include <png.h>
 #include <zlib.h>
 
@@ -58,6 +62,21 @@ public:
     {
         error_occurs = 0;
     }
+};
+
+struct screenshot_statistics_scoped_data
+{
+    uint64_t total_take;
+    uint64_t total_frame;
+};
+
+class screenshot_statistics
+{
+public:
+    std::unordered_map<std::string, screenshot_statistics_scoped_data> capture_counts;
+
+    void load(const ini_file &config);
+    void save(ini_file &config) const;
 };
 
 class screenshot_myset
@@ -162,6 +181,7 @@ public:
     std::filesystem::path reshade_preset_path;
 
     std::filesystem::path addon_screenshot_config_path;
+    std::filesystem::path addon_screenshot_statistics_path;
 
     screenshot_environment() = default;
     screenshot_environment(const screenshot_environment &screenshot_env) = default;
@@ -179,13 +199,15 @@ class screenshot
 {
 public:
     screenshot_environment environment;
+    screenshot_statistics statistics;
 
     screenshot_myset myset;
     screenshot_state &state;
 
     screenshot_kind kind = screenshot_kind::unset;
-    unsigned int repeat_index = 0;
+    std::filesystem::path image_file;
 
+    unsigned int repeat_index = 0;
     unsigned int height = 0, width = 0;
     std::vector<uint8_t> pixels;
     std::chrono::system_clock::time_point frame_time;
@@ -194,12 +216,19 @@ public:
 
     screenshot() = default;
     screenshot(screenshot &&screenshot) = default;
-    screenshot(reshade::api::effect_runtime *runtime, const screenshot_environment &environment, const screenshot_myset &myset, screenshot_kind kind, screenshot_state &state, std::chrono::system_clock::time_point frame_time) :
+    screenshot(reshade::api::effect_runtime *runtime,
+               const screenshot_environment &environment,
+               const screenshot_myset &myset,
+               screenshot_kind kind,
+               screenshot_state &state,
+               std::chrono::system_clock::time_point frame_time,
+               screenshot_statistics statistics) :
         environment(environment),
         myset(myset),
         kind(kind),
         state(state),
-        frame_time(frame_time)
+        frame_time(frame_time),
+        statistics(statistics)
     {
         if (runtime)
             runtime->get_screenshot_width_and_height(&width, &height);
@@ -224,6 +253,10 @@ public:
 
     void save();
     std::string expand_macro_string(const std::string &input) const;
+
+    [[noreturn]]
+    static void user_error_fn(png_structp png_ptr, png_const_charp error_msg);
+    static void user_warning_fn(png_structp png_ptr, png_const_charp warning_msg);
 };
 
 static std::string format_message(DWORD dwMessageId, DWORD dwLanguageId = 0x409) noexcept

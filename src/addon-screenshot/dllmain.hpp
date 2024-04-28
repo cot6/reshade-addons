@@ -23,6 +23,7 @@ class __declspec(uuid("a722aa89-f8e3-43f2-84f2-72fe0122b715")) screenshot_contex
 public:
     screenshot_config config;
     screenshot_environment environment;
+    screenshot_statistics statistics;
 
     uint64_t current_frame = 0;
 

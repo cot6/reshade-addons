@@ -35,6 +35,7 @@ public:
     /// </summary>
     using elements = std::vector<std::string>;
     using sections = std::vector<std::string>;
+    using keys = std::vector<std::string>;
     /// <summary>
     /// Describes a section of multiple key/value pairs in an INI file.
     /// </summary>
@@ -124,7 +125,7 @@ public:
         for (const auto &section : _sections)
             sections.push_back(section.first);
     }
-    void get(const std::string &section, elements &keys) const noexcept
+    void get(const std::string &section, keys &keys) const noexcept
     {
         std::lock_guard lock(const_cast<std::recursive_mutex &>(_mutex));
 
@@ -352,7 +353,7 @@ public:
     /// <returns>A reference to the cached data. This reference is valid until the next call to <see cref="load_cache"/>.</returns>
     static ini_file &load_cache(const std::filesystem::path &path) noexcept;
 
-    static bool flush_cache() noexcept;
+    static bool flush_cache(bool force = false) noexcept;
     static bool flush_cache(const std::filesystem::path &path) noexcept;
 
 private:

@@ -127,6 +127,33 @@ void screenshot_myset::save(ini_file &config) const
     config.set(section, "ZlibCompressionLevel", zlib_compression_level);
     config.set(section, "ZlibCompressionStrategy", zlib_compression_strategy);
 }
+void screenshot_statistics::load(const ini_file &config)
+{
+    static const std::string section = "COUNT";
+
+    ini_data::keys keys;
+    config.get(section, keys);
+
+    for (const auto &key : keys)
+    {
+        if (uint64_t value[2]{}; config.get(section, key, value))
+            capture_counts.try_emplace(key, screenshot_statistics_scoped_data{ value[0], value[1] });
+    }
+
+    capture_counts.try_emplace({});
+}
+void screenshot_statistics::save(ini_file &config) const
+{
+    static const std::string section = "COUNT";
+
+    config.erase(section);
+
+    for (const auto &capture_count : capture_counts)
+    {
+        uint64_t value[2]{ capture_count.second.total_take, capture_count.second.total_frame };
+        config.set(section, capture_count.first, value);
+    }
+}
 
 void screenshot_environment::load(reshade::api::effect_runtime *runtime)
 {
@@ -193,6 +220,8 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
         if (std::filesystem::status(old_addon_screenshot_config_path, ec).type() == std::filesystem::file_type::regular)
             std::filesystem::rename(old_addon_screenshot_config_path, addon_screenshot_config_path, ec);
     }
+
+    addon_screenshot_statistics_path = reshade_base_path / L"ReShade_Addon_Screenshot.stats";
 }
 void screenshot_environment::init()
 {
@@ -309,9 +338,10 @@ void screenshot::save()
     const auto begin = std::chrono::system_clock::now();
 
     std::error_code ec{};
-    bool success = true;
+    enum { ok, open_error, write_error } result = ok;
 
-    std::filesystem::path image_file;
+    image_file.clear();
+
     switch (kind)
     {
         case screenshot_kind::after:
@@ -332,19 +362,23 @@ void screenshot::save()
         default:
             message = std::format("Unknown screenshot kind: %d", kind);
             reshade::log_message(reshade::log_level::debug, message.c_str());
-            success = false;
+            result = open_error;
+
+            state.error_occurs++;
             return;
     }
 
     image_file = std::filesystem::u8path(expand_macro_string(image_file.u8string()));
-    image_file = environment.reshade_base_path / image_file;
+    image_file = std::filesystem::weakly_canonical(environment.reshade_base_path / image_file, ec);
 
     if (!image_file.has_filename())
     {
         message = std::format("Skip saving '%s' screenshot because the path has no file name! \"%s\"", get_screenshot_kind_name(kind), image_file.u8string().c_str());
         reshade::log_message(reshade::log_level::error, message.c_str());
 
-        success = false;
+        result = open_error;
+
+        state.error_occurs++;
         return;
     }
 
@@ -356,7 +390,9 @@ void screenshot::save()
             message = std::format("Failed to create '%s' screenshot directory with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), parent_path.u8string().c_str());
             reshade::log_message(reshade::log_level::error, message.c_str());
 
-            success = false;
+            result = open_error;
+
+            state.error_occurs++;
             return;
         }
     }
@@ -450,7 +486,7 @@ void screenshot::save()
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
 
-                success = false;
+                result = condition == condition::open ? write_error : open_error;
             }
         }
     }
@@ -479,39 +515,52 @@ void screenshot::save()
             if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
                 write_ptr != nullptr)
             {
-                setvbuf(file, nullptr, _IOFBF, myset.file_write_buffer_size);
-
-                png_init_io(write_ptr, file);
-                png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, myset.libpng_png_filters);
-
-                png_set_compression_mem_level(write_ptr, MAX_MEM_LEVEL);
-                png_set_compression_buffer_size(write_ptr, 65536);
-
-                png_set_compression_level(write_ptr, myset.zlib_compression_level);
-                png_set_compression_strategy(write_ptr, myset.zlib_compression_strategy);
-
-                if (info_ptr = png_create_info_struct(write_ptr);
-                    info_ptr != nullptr)
+                if (setjmp(*png_set_longjmp_fn(write_ptr, longjmp, sizeof(jmp_buf))) == 0)
                 {
-                    png_set_IHDR(write_ptr, info_ptr, width, height, 8, myset.image_format == 0 ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+                    setvbuf(file, nullptr, _IOFBF, myset.file_write_buffer_size);
 
-                    png_time mod_time{};
-                    png_convert_from_time_t(&mod_time, std::chrono::system_clock::to_time_t(frame_time));
-                    png_set_tIME(write_ptr, info_ptr, &mod_time);
+                    png_init_io(write_ptr, file);
+                    png_set_error_fn(write_ptr, this, user_error_fn, user_warning_fn);
 
-                    png_write_info(write_ptr, info_ptr);
+                    png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, myset.libpng_png_filters);
 
-                    std::vector<png_bytep> rows(height);
-                    for (size_t y = 0; y < height; y++)
-                        rows[y] = pixel + static_cast<size_t>(channels) * width * y;
-                    png_write_image(write_ptr, rows.data());
+                    png_set_compression_mem_level(write_ptr, MAX_MEM_LEVEL);
+                    png_set_compression_buffer_size(write_ptr, 65536);
 
-                    png_write_end(write_ptr, info_ptr);
+                    png_set_compression_level(write_ptr, myset.zlib_compression_level);
+                    png_set_compression_strategy(write_ptr, myset.zlib_compression_strategy);
+
+                    if (info_ptr = png_create_info_struct(write_ptr);
+                        info_ptr != nullptr)
+                    {
+                        png_set_IHDR(write_ptr, info_ptr, width, height, 8, myset.image_format == 0 ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+
+                        png_time mod_time{};
+                        png_convert_from_time_t(&mod_time, std::chrono::system_clock::to_time_t(frame_time));
+                        png_set_tIME(write_ptr, info_ptr, &mod_time);
+
+                        png_write_info(write_ptr, info_ptr);
+
+                        std::vector<png_bytep> rows(height);
+                        for (size_t y = 0; y < height; y++)
+                            rows[y] = pixel + static_cast<size_t>(channels) * width * y;
+
+                        png_write_image(write_ptr, rows.data());
+
+                        png_write_end(write_ptr, info_ptr);
+                    }
                 }
-            }
+                else
+                {
+                    message = std::format("Failed to saving '%s' screenshot! \"%s\"", get_screenshot_kind_name(kind), image_file.u8string().c_str());
+                    reshade::log_message(reshade::log_level::error, message.c_str());
 
-            png_destroy_write_struct(&write_ptr, &info_ptr);
-            png_destroy_info_struct(write_ptr, &info_ptr);
+                    result = write_error;
+                }
+
+                png_destroy_info_struct(write_ptr, &info_ptr);
+                png_destroy_write_struct(&write_ptr, &info_ptr);
+            }
 
             fclose(file);
 
@@ -543,7 +592,7 @@ void screenshot::save()
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
 
-                success = false;
+                result = write_error;
             }
         }
         else
@@ -555,7 +604,7 @@ void screenshot::save()
                 reshade::log_message(reshade::log_level::error, message.c_str());
             }
 
-            success = false;
+            result = open_error;
         }
     }
     else if (myset.image_format == 2 || myset.image_format == 3)
@@ -609,7 +658,7 @@ void screenshot::save()
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
 
-                success = false;
+                result = condition == condition::create ? write_error : open_error;
             }
         }
     }
@@ -717,7 +766,7 @@ void screenshot::save()
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
 
-                success = false;
+                result = write_error;
             }
         }
         else
@@ -725,11 +774,11 @@ void screenshot::save()
             message = std::format("Failed to saving '%s' screenshot path \"%s\"!", get_screenshot_kind_name(kind), image_file.u8string().c_str());
             reshade::log_message(reshade::log_level::error, message.c_str());
 
-            success = false;
+            result = open_error;
         }
     }
 
-    if (success)
+    if (result == ok)
     {
         const auto elapsed = std::chrono::system_clock::now() - begin;
         state.last_elapsed = elapsed.count();
@@ -737,6 +786,15 @@ void screenshot::save()
     else
     {
         state.error_occurs++;
+
+        if (result == write_error)
+        {
+            if (DeleteFileW(image_file.c_str()) == FALSE)
+            {
+                ec = std::error_code(GetLastError(), std::system_category());
+                reshade::log_message(reshade::log_level::error, std::format("Failed to deleting '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str()).c_str());
+            }
+        }
     }
 
     return;
@@ -748,6 +806,66 @@ std::string screenshot::expand_macro_string(const std::string &input) const
 
     macros.emplace_back("APP", [this](std::string_view) { return environment.reshade_executable_path.stem().u8string(); });
     macros.emplace_back("PRESET", [this](std::string_view) { return environment.reshade_preset_path.stem().u8string(); });
+    macros.emplace_back("TOTALFRAME",
+        [this](std::string_view fmt) {
+            if (fmt.empty())
+                fmt = "D1";
+            bool zeroed = false;
+            if (fmt[0] == 'D' || fmt[0] == 'd')
+                zeroed = true;
+            int digits = 1;
+            if (fmt.size() == 1 && '1' <= fmt[0] && fmt[0] <= '9')
+                digits = fmt[0] - '0';
+            if (fmt.size() == 2 && '1' <= fmt[1] && fmt[1] <= '9')
+                digits = fmt[1] - '0';
+            auto it = statistics.capture_counts.find({});
+            return std::format(zeroed ? "%0*u" : "%*u", digits, it != statistics.capture_counts.end() ? it->second.total_frame : 0);
+        });
+    macros.emplace_back("MYSETFRAME",
+        [this](std::string_view fmt) {
+            if (fmt.empty())
+                fmt = "D1";
+            bool zeroed = false;
+            if (fmt[0] == 'D' || fmt[0] == 'd')
+                zeroed = true;
+            int digits = 1;
+            if (fmt.size() == 1 && '1' <= fmt[0] && fmt[0] <= '9')
+                digits = fmt[0] - '0';
+            if (fmt.size() == 2 && '1' <= fmt[1] && fmt[1] <= '9')
+                digits = fmt[1] - '0';
+            auto it = statistics.capture_counts.find(myset.name);
+            return std::format(zeroed ? "%0*u" : "%*u", digits, it != statistics.capture_counts.end() ? it->second.total_frame : 0);
+        });
+    macros.emplace_back("TOTALTAKE",
+        [this](std::string_view fmt) {
+            if (fmt.empty())
+                fmt = "D1";
+            bool zeroed = false;
+            if (fmt[0] == 'D' || fmt[0] == 'd')
+                zeroed = true;
+            int digits = 1;
+            if (fmt.size() == 1 && '1' <= fmt[0] && fmt[0] <= '9')
+                digits = fmt[0] - '0';
+            if (fmt.size() == 2 && '1' <= fmt[1] && fmt[1] <= '9')
+                digits = fmt[1] - '0';
+            auto it = statistics.capture_counts.find({});
+            return std::format(zeroed ? "%0*u" : "%*u", digits, it != statistics.capture_counts.end() ? it->second.total_take : 0);
+        });
+    macros.emplace_back("MYSETTAKE",
+        [this](std::string_view fmt) {
+            if (fmt.empty())
+                fmt = "D1";
+            bool zeroed = false;
+            if (fmt[0] == 'D' || fmt[0] == 'd')
+                zeroed = true;
+            int digits = 1;
+            if (fmt.size() == 1 && '1' <= fmt[0] && fmt[0] <= '9')
+                digits = fmt[0] - '0';
+            if (fmt.size() == 2 && '1' <= fmt[1] && fmt[1] <= '9')
+                digits = fmt[1] - '0';
+            auto it = statistics.capture_counts.find(myset.name);
+            return std::format(zeroed ? "%0*u" : "%*u", digits, it != statistics.capture_counts.end() ? it->second.total_take : 0);
+        });
     macros.emplace_back("INDEX",
         [this](std::string_view fmt) {
             if (fmt.empty())
@@ -821,4 +939,45 @@ std::string screenshot::expand_macro_string(const std::string &input) const
     }
 
     return result;
+}
+
+void screenshot::user_error_fn(png_structp png_ptr, png_const_charp error_msg)
+{
+    if (screenshot *context = reinterpret_cast<screenshot *>(png_get_error_ptr(png_ptr));
+        context != nullptr)
+    {
+        if (const int ec = errno; ec)
+        {
+            char str[100] = "\0";
+            strerror_s(str, ec);
+
+            context->message = std::format("libpng: Fatal error '%s' with error code %d! '%s' \"%s\"", error_msg == nullptr ? "(null)" : *error_msg ? error_msg : "(no message)", ec, str, context->image_file.u8string().c_str());
+        }
+        else
+        {
+            context->message = std::format("libpng: Fatal error '%s'! \"%s\"", error_msg == nullptr ? "(null)" : *error_msg ? error_msg : "(no message)", context->image_file.u8string().c_str());
+        }
+        reshade::log_message(reshade::log_level::error, context->message.c_str());
+    }
+
+    png_longjmp(png_ptr, 1);
+}
+void screenshot::user_warning_fn(png_structp png_ptr, png_const_charp warning_msg)
+{
+    if (screenshot *context = reinterpret_cast<screenshot *>(png_get_error_ptr(png_ptr));
+        context != nullptr)
+    {
+        if (const int ec = errno; ec)
+        {
+            char str[100] = "\0";
+            strerror_s(str, ec);
+
+            context->message = std::format("libpng: Warning '%s' with error code %d! '%s' \"%s\"", warning_msg == nullptr ? "(null)" : *warning_msg ? warning_msg : "(no message)", ec, str, context->image_file.u8string().c_str());
+        }
+        else
+        {
+            context->message = std::format("libpng: Fatal error '%s'! \"%s\"", warning_msg == nullptr ? "(null)" : *warning_msg ? warning_msg : "(no message)", context->image_file.u8string().c_str());
+        }
+        reshade::log_message(reshade::log_level::warning, context->message.c_str());
+    }
 }

@@ -35,7 +35,7 @@ static int path_filter(ImGuiInputTextCallbackData *data)
 
 void screenshot_context::save()
 {
-    config.save(ini_file::load_cache(environment.reshade_base_path / L"ReShade_Addon_Screenshot.ini"), false);
+    config.save(ini_file::load_cache(environment.addon_screenshot_config_path), false);
 }
 inline bool screenshot_context::is_screenshot_active() const noexcept
 {
@@ -77,6 +77,7 @@ static void on_init(reshade::api::effect_runtime *runtime)
 
     ctx.environment.load(runtime);
     ctx.config.load(ini_file::load_cache(ctx.environment.addon_screenshot_config_path));
+    ctx.statistics.load(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
 
     ctx.screenshot_begin_frame = std::numeric_limits<decltype(ctx.screenshot_begin_frame)>::max();
 }
@@ -107,11 +108,16 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
     {
         ctx.capture_last = ctx.capture_time;
         ctx.capture_time = ctx.present_time;
+
+        if (ctx.statistics.capture_counts.try_emplace({}).first->second.total_frame++; ctx.active_screenshot != nullptr)
+            ctx.statistics.capture_counts.try_emplace(ctx.active_screenshot->name).first->second.total_frame++;
+
+        ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
     }
 
     if (ctx.is_screenshot_frame(screenshot_kind::original))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::original, ctx.screenshot_state, ctx.present_time);
+        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::original, ctx.screenshot_state, ctx.present_time, ctx.statistics);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
@@ -137,7 +143,7 @@ static void on_begin_effects(reshade::api::effect_runtime *runtime, reshade::api
 
     if (ctx.is_screenshot_frame(screenshot_kind::before))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::before, ctx.screenshot_state, ctx.present_time);
+        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::before, ctx.screenshot_state, ctx.present_time, ctx.statistics);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 }
@@ -150,7 +156,7 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
 
     if (ctx.is_screenshot_frame(screenshot_kind::after))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::after, ctx.screenshot_state, ctx.present_time);
+        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::after, ctx.screenshot_state, ctx.present_time, ctx.statistics);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
@@ -221,7 +227,7 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
                     reshade::api::format texture_format;
                     if (get_texture_data(resource, reshade::api::resource_usage::shader_resource, texture_data, texture_format))
                     {
-                        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::depth, ctx.screenshot_state, ctx.present_time);
+                        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::depth, ctx.screenshot_state, ctx.present_time, ctx.statistics);
                         screenshot.repeat_index = ctx.screenshot_repeat_index;
                         screenshot.pixels = std::move(texture_data);
                     }
@@ -239,7 +245,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
     if (ctx.is_screenshot_frame(screenshot_kind::overlay))
     {
-        screenshot &screenshot = ctx.screenshots.emplace_front(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::overlay, ctx.screenshot_state, ctx.present_time);
+        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::overlay, ctx.screenshot_state, ctx.present_time, ctx.statistics);
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
@@ -326,6 +332,8 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                     ctx.playsound_flags = 0;
                 }
 
+                ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
+
                 if (ctx.active_screenshot == &screenshot_myset)
                 {
                     ctx.active_screenshot = nullptr;
@@ -346,6 +354,11 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
                     ctx.screenshot_begin_frame = ctx.current_frame + 1;
                     ctx.screenshot_repeat_index = 0;
+
+                    if (ctx.statistics.capture_counts.try_emplace({}).first->second.total_take++; ctx.active_screenshot != nullptr)
+                        ctx.statistics.capture_counts.try_emplace(ctx.active_screenshot->name).first->second.total_take++;
+
+                    ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
 
                     if (screenshot_myset.worker_threads != 0)
                         ctx.screenshot_worker_threads = screenshot_myset.worker_threads;
@@ -463,7 +476,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
             ImGui::TextColored(COLOR_YELLOW, "%s", _("Processing of screenshots is too slow!"));
 
         if (ctx.screenshot_state.error_occurs > 0)
-            ImGui::TextColored(COLOR_YELLOW, "%s", _("Failed. Check details in the log."));
+            ImGui::TextColored(COLOR_RED, "%s", _("Failed. Check details in the log."));
 
         if ((ctx.is_screenshot_enable(screenshot_kind::before) || ctx.is_screenshot_enable(screenshot_kind::after)) &&
             (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
@@ -521,7 +534,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (status.clear(); image.empty() || image.native().front() == '-')
                     return;
 
-                screenshot dummy(nullptr, ctx.environment, screenshot_myset, kind, ctx.screenshot_state, ctx.present_time);
+                screenshot dummy(nullptr, ctx.environment, screenshot_myset, kind, ctx.screenshot_state, ctx.present_time, ctx.statistics);
                 std::filesystem::path expanded = std::filesystem::u8path(dummy.expand_macro_string(image.u8string()));
                 expanded = ctx.environment.reshade_base_path / expanded;
 
@@ -670,6 +683,18 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     tooltip += _("Macros you can add that are resolved during saving:\n"
                         "  <APP>               File name of the current executable file (%s)\n"
                         "  <PRESET>            File name of the current preset file (%s)\n"
+                        "  <TOTALFRAME[:format]>\n"
+                        "                      Total number of screenshots\n"
+                        "                      (default: D1)\n"
+                        "  <MYSETFRAME[:format]>\n"
+                        "                      Total number of screenshots of myset\n"
+                        "                      (default: D1)\n"
+                        "  <TOTALTAKE[:format]>\n"
+                        "                      Total number of activation\n"
+                        "                      (default: D1)\n"
+                        "  <MYSETTAKE[:format]>\n"
+                        "                      Total number of activation of myset\n"
+                        "                      (default: D1)\n"
                         "  <INDEX[:format]>    Current number of continuous screenshot\n"
                         "                      (default: D1)\n"
                         "  <DATE[:format]>     Timestamp of taken screenshot\n"
@@ -854,9 +879,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         reshade::register_event<reshade::addon_event::reshade_reloaded_effects>(on_reshade_reloaded_effects);
         reshade::register_overlay("OSD", draw_osd_window);
         reshade::register_overlay("Settings###settings", draw_setting_window);
+
+        ini_file::flush_cache(true);
     }
     else if (fdwReason == DLL_PROCESS_DETACH)
     {
+        ini_file::flush_cache(true);
+
         reshade::unregister_overlay("OSD", draw_osd_window);
         reshade::unregister_overlay("Settings###settings", draw_setting_window);
         reshade::unregister_addon(hModule);
