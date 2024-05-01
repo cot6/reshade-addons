@@ -5,7 +5,15 @@
 
 #pragma once
 
+#include <chrono>
+#include <filesystem>
+#include <thread>
+#include <list>
+#include <vector>
+
 #include <errno.h>
+#include <inttypes.h>
+
 #include <setjmp.h> // This for application must include this before png.h to obtain the definition of jmp_buf.
 
 #include "res\version.h"
@@ -16,12 +24,6 @@
 
 #include <png.h>
 #include <zlib.h>
-
-#include <chrono>
-#include <filesystem>
-#include <thread>
-#include <list>
-#include <vector>
 
 enum screenshot_kind
 {

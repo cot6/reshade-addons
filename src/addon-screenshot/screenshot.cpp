@@ -819,7 +819,7 @@ std::string screenshot::expand_macro_string(const std::string &input) const
             if (fmt.size() == 2 && '1' <= fmt[1] && fmt[1] <= '9')
                 digits = fmt[1] - '0';
             auto it = statistics.capture_counts.find({});
-            return std::format(zeroed ? "%0*u" : "%*u", digits, it != statistics.capture_counts.end() ? it->second.total_frame : 0);
+            return std::format(zeroed ? "%0*" PRIu64 : "%*" PRIu64, digits, it != statistics.capture_counts.end() ? it->second.total_frame : 0);
         });
     macros.emplace_back("MYSETFRAME",
         [this](std::string_view fmt) {
@@ -834,7 +834,7 @@ std::string screenshot::expand_macro_string(const std::string &input) const
             if (fmt.size() == 2 && '1' <= fmt[1] && fmt[1] <= '9')
                 digits = fmt[1] - '0';
             auto it = statistics.capture_counts.find(myset.name);
-            return std::format(zeroed ? "%0*u" : "%*u", digits, it != statistics.capture_counts.end() ? it->second.total_frame : 0);
+            return std::format(zeroed ? "%0*" PRIu64 : "%*" PRIu64, digits, it != statistics.capture_counts.end() ? it->second.total_frame : 0);
         });
     macros.emplace_back("TOTALTAKE",
         [this](std::string_view fmt) {
@@ -849,7 +849,7 @@ std::string screenshot::expand_macro_string(const std::string &input) const
             if (fmt.size() == 2 && '1' <= fmt[1] && fmt[1] <= '9')
                 digits = fmt[1] - '0';
             auto it = statistics.capture_counts.find({});
-            return std::format(zeroed ? "%0*u" : "%*u", digits, it != statistics.capture_counts.end() ? it->second.total_take : 0);
+            return std::format(zeroed ? "%0*" PRIu64 : "%*" PRIu64, digits, it != statistics.capture_counts.end() ? it->second.total_take : 0);
         });
     macros.emplace_back("MYSETTAKE",
         [this](std::string_view fmt) {
@@ -864,7 +864,7 @@ std::string screenshot::expand_macro_string(const std::string &input) const
             if (fmt.size() == 2 && '1' <= fmt[1] && fmt[1] <= '9')
                 digits = fmt[1] - '0';
             auto it = statistics.capture_counts.find(myset.name);
-            return std::format(zeroed ? "%0*u" : "%*u", digits, it != statistics.capture_counts.end() ? it->second.total_take : 0);
+            return std::format(zeroed ? "%0*" PRIu64 : "%*" PRIu64, digits, it != statistics.capture_counts.end() ? it->second.total_take : 0);
         });
     macros.emplace_back("INDEX",
         [this](std::string_view fmt) {
