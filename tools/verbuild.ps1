@@ -1,4 +1,4 @@
-﻿#Requires -version 7.2
+#Requires -version 7.2
 
 using namespace System.Collections
 using namespace System.IO
@@ -87,9 +87,7 @@ $content = @"
 #define ADDON_FILEFLAGS ($fileFlags)
 #endif
 
-#if ADDON_FILEFLAGS & VS_FF_PRIVATEBUILD
 #define ADDON_PRIVATEBUILD `"Built by $(git config user.name) ($(git config user.email))` at $([DateTimeOffset]::Now.ToString('O'))"
-#endif
 
 "@
 
