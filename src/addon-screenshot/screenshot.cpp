@@ -70,23 +70,30 @@ void screenshot_myset::load(const ini_file &config)
 {
     std::string section = ':' + name;
 
-    config.get(section, "AfterImage", after_image);
-    config.get(section, "AfterImageDiskFreeLimit", after_freelimit);
-    config.get(section, "BeforeImage", before_image);
-    config.get(section, "BeforeImageDiskFreeLimit", before_freelimit);
-
+    if (!config.get(section, "AfterImage", after_image))
+        after_image.clear();
+    if (!config.get(section, "AfterImageDiskFreeLimit", after_freelimit))
+        after_freelimit = 0;
+    if (!config.get(section, "BeforeImage", before_image))
+        before_image.clear();
+    if (!config.get(section, "BeforeImageDiskFreeLimit", before_freelimit))
+        before_freelimit = 0;
     if (!config.get(section, "ImageFormat", image_format))
         image_format = 0;
     if (!config.get(section, "KeyScreenshot", screenshot_key_data))
         std::memset(screenshot_key_data, 0, sizeof(screenshot_key_data));
-
-    config.get(section, "OriginalImage", original_image);
-    config.get(section, "OriginalImageDiskFreeLimit", original_freelimit);
-    config.get(section, "OverlayImage", overlay_image);
-    config.get(section, "OverlayImageDiskFreeLimit", overlay_freelimit);
-    config.get(section, "DepthImage", depth_image);
-    config.get(section, "DepthImageDiskFreeLimit", depth_freelimit);
-
+    if (!config.get(section, "OriginalImage", original_image))
+        original_image.clear();
+    if (!config.get(section, "OriginalImageDiskFreeLimit", original_freelimit))
+        original_freelimit = 0;
+    if (!config.get(section, "OverlayImage", overlay_image))
+        overlay_image.clear();
+    if (!config.get(section, "OverlayImageDiskFreeLimit", overlay_freelimit))
+        overlay_freelimit = 0;
+    if (!config.get(section, "DepthImage", depth_image))
+        depth_image.clear();
+    if (!config.get(section, "DepthImageDiskFreeLimit", depth_freelimit))
+        depth_freelimit = 0;
     if (!config.get(section, "RepeatCount", repeat_count))
         repeat_count = 1;
     if (!config.get(section, "RepeatInterval", repeat_interval))

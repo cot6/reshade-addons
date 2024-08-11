@@ -465,7 +465,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
             uint64_t using_bytes = 0;
             std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
                 [&using_bytes](const screenshot &screenshot) {
-                    using_bytes += screenshot.pixels.size();
+                        using_bytes += screenshot.pixels.size();
                 });
             str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
             ImGui::Text("%*s", str.size(), str.c_str());
