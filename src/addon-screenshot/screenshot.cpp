@@ -69,52 +69,23 @@ void screenshot_config::save(ini_file &config, bool header_only)
 void screenshot_myset::load(const ini_file &config)
 {
     std::string section = ':' + name;
-    ini_data::elements elements;
 
-    config.get(section, "AfterImage", elements);
-    if (after_image.clear(); elements.size() >= 1)
-        after_image = std::filesystem::u8path(elements[0]);
-    if (after_freelimit = std::numeric_limits<decltype(after_freelimit)>::max(); elements.size() >= 2)
-        if ((after_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || after_freelimit == ULLONG_MAX)
-            after_freelimit = std::numeric_limits<decltype(after_freelimit)>::max();
-    elements.clear();
-
-    config.get(section, "BeforeImage", elements);
-    if (before_image.clear(), elements.size() >= 1)
-        before_image = std::filesystem::u8path(elements[0]);
-    if (before_freelimit = std::numeric_limits<decltype(before_freelimit)>::max(), elements.size() >= 2)
-        if ((before_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || before_freelimit == ULLONG_MAX)
-            before_freelimit = std::numeric_limits<decltype(before_freelimit)>::max();
-    elements.clear();
+    config.get(section, "AfterImage", after_image);
+    config.get(section, "AfterImageDiskFreeLimit", after_freelimit);
+    config.get(section, "BeforeImage", before_image);
+    config.get(section, "BeforeImageDiskFreeLimit", before_freelimit);
 
     if (!config.get(section, "ImageFormat", image_format))
         image_format = 0;
     if (!config.get(section, "KeyScreenshot", screenshot_key_data))
         std::memset(screenshot_key_data, 0, sizeof(screenshot_key_data));
 
-    config.get(section, "OriginalImage", elements);
-    if (original_image.clear(), elements.size() >= 1)
-        original_image = std::filesystem::u8path(elements[0]);
-    if (original_freelimit = std::numeric_limits<decltype(original_freelimit)>::max(), elements.size() >= 2)
-        if ((original_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || original_freelimit == ULLONG_MAX)
-            original_freelimit = std::numeric_limits<decltype(original_freelimit)>::max();
-    elements.clear();
-
-    config.get(section, "OverlayImage", elements);
-    if (overlay_image.clear(), elements.size() >= 1)
-        overlay_image = std::filesystem::u8path(elements[0]);
-    if (overlay_freelimit = std::numeric_limits<decltype(overlay_freelimit)>::max(), elements.size() >= 2)
-        if ((overlay_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || overlay_freelimit == ULLONG_MAX)
-            overlay_freelimit = std::numeric_limits<decltype(overlay_freelimit)>::max();
-    elements.clear();
-
-    config.get(section, "DepthImage", elements);
-    if (depth_image.clear(), elements.size() >= 1)
-        depth_image = std::filesystem::u8path(elements[0]);
-    if (depth_freelimit = std::numeric_limits<decltype(depth_freelimit)>::max(), elements.size() >= 2)
-        if ((depth_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || depth_freelimit == ULLONG_MAX)
-            depth_freelimit = std::numeric_limits<decltype(depth_freelimit)>::max();
-    elements.clear();
+    config.get(section, "OriginalImage", original_image);
+    config.get(section, "OriginalImageDiskFreeLimit", original_freelimit);
+    config.get(section, "OverlayImage", overlay_image);
+    config.get(section, "OverlayImageDiskFreeLimit", overlay_freelimit);
+    config.get(section, "DepthImage", depth_image);
+    config.get(section, "DepthImageDiskFreeLimit", depth_freelimit);
 
     if (!config.get(section, "RepeatCount", repeat_count))
         repeat_count = 1;
@@ -143,13 +114,18 @@ void screenshot_myset::save(ini_file &config) const
 {
     std::string section = ':' + name;
 
-    config.set(section, "AfterImage", { after_image.u8string(), std::to_string(after_freelimit) });
-    config.set(section, "BeforeImage", { before_image.u8string(), std::to_string(before_freelimit) });
+    config.set(section, "AfterImage", after_image);
+    config.set(section, "AfterImageDiskFreeLimit", after_freelimit);
+    config.set(section, "BeforeImage", before_image);
+    config.set(section, "BeforeImageDiskFreeLimit", before_freelimit);
     config.set(section, "ImageFormat", image_format);
     config.set(section, "KeyScreenshot", screenshot_key_data);
-    config.set(section, "OriginalImage", { original_image.u8string(), std::to_string(original_freelimit) });
-    config.set(section, "OverlayImage", { overlay_image.u8string(), std::to_string(overlay_freelimit) });
-    config.set(section, "DepthImage", { depth_image.u8string(), std::to_string(depth_freelimit) });
+    config.set(section, "OriginalImage", original_image);
+    config.set(section, "OriginalImageDiskFreeLimit", original_freelimit);
+    config.set(section, "OverlayImage", overlay_image);
+    config.set(section, "OverlayImageDiskFreeLimit", overlay_freelimit);
+    config.set(section, "DepthImage", depth_image);
+    config.set(section, "DepthImageDiskFreeLimit", depth_freelimit);
     config.set(section, "RepeatCount", repeat_count);
     config.set(section, "RepeatInterval", repeat_interval);
     config.set(section, "WorkerThreads", worker_threads);
