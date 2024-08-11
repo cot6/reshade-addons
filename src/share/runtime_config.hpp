@@ -98,6 +98,19 @@ public:
             values[i] = convert<T>(it2->second, i);
         return true;
     }
+    bool get(const std::string &section, const std::string &key, std::vector<std::string> &values) const noexcept
+    {
+        std::lock_guard lock(const_cast<std::recursive_mutex &>(_mutex));
+
+        const auto it1 = _sections.find(section);
+        if (it1 == _sections.end())
+            return false;
+        const auto it2 = it1->second.find(key);
+        if (it2 == it1->second.end())
+            return false;
+        values = it2->second;
+        return true;
+    }
     template <typename T>
     bool get(const std::string &section, const std::string &key, std::vector<T> &values) const noexcept
     {
@@ -200,6 +213,21 @@ public:
     void set(const std::string &section, const std::string &key, const std::filesystem::path &value) noexcept
     {
         set(section, key, value.u8string());
+    }
+    template <size_t SIZE>
+    void set(const std::string &section, const std::string &key, const std::string(&values)[SIZE], const size_t size = SIZE) noexcept
+    {
+        std::lock_guard lock(_mutex);
+
+        assert(size <= SIZE);
+
+        auto &v = _sections[section][key];
+        v.resize(size);
+        for (size_t i = 0; i < size; ++i)
+            v[i] = values[i];
+
+        _modified_at = std::filesystem::file_time_type::clock::now();
+        _modified = true;
     }
     template <typename T, size_t SIZE>
     void set(const std::string &section, const std::string &key, const T(&values)[SIZE], const size_t size = SIZE) noexcept

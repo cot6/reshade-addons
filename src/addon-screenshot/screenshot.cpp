@@ -8,6 +8,9 @@
 
 #include "dll_resources.hpp"
 
+#include "addon.hpp"
+#include "std_string_ext.hpp"
+
 #include "runtime_config.hpp"
 #include "screenshot.hpp"
 
@@ -66,21 +69,53 @@ void screenshot_config::save(ini_file &config, bool header_only)
 void screenshot_myset::load(const ini_file &config)
 {
     std::string section = ':' + name;
+    ini_data::elements elements;
 
-    if (!config.get(section, "AfterImage", after_image))
-        after_image.clear();
-    if (!config.get(section, "BeforeImage", before_image))
-        before_image.clear();
+    config.get(section, "AfterImage", elements);
+    if (after_image.clear(); elements.size() >= 1)
+        after_image = std::filesystem::u8path(elements[0]);
+    if (after_freelimit = std::numeric_limits<decltype(after_freelimit)>::max(); elements.size() >= 2)
+        if ((after_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || after_freelimit == ULLONG_MAX)
+            after_freelimit = std::numeric_limits<decltype(after_freelimit)>::max();
+    elements.clear();
+
+    config.get(section, "BeforeImage", elements);
+    if (before_image.clear(), elements.size() >= 1)
+        before_image = std::filesystem::u8path(elements[0]);
+    if (before_freelimit = std::numeric_limits<decltype(before_freelimit)>::max(), elements.size() >= 2)
+        if ((before_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || before_freelimit == ULLONG_MAX)
+            before_freelimit = std::numeric_limits<decltype(before_freelimit)>::max();
+    elements.clear();
+
     if (!config.get(section, "ImageFormat", image_format))
         image_format = 0;
     if (!config.get(section, "KeyScreenshot", screenshot_key_data))
         std::memset(screenshot_key_data, 0, sizeof(screenshot_key_data));
-    if (!config.get(section, "OriginalImage", original_image))
-        original_image.clear();
-    if (!config.get(section, "OverlayImage", overlay_image))
-        overlay_image.clear();
-    if (!config.get(section, "DepthImage", depth_image))
-        depth_image.clear();
+
+    config.get(section, "OriginalImage", elements);
+    if (original_image.clear(), elements.size() >= 1)
+        original_image = std::filesystem::u8path(elements[0]);
+    if (original_freelimit = std::numeric_limits<decltype(original_freelimit)>::max(), elements.size() >= 2)
+        if ((original_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || original_freelimit == ULLONG_MAX)
+            original_freelimit = std::numeric_limits<decltype(original_freelimit)>::max();
+    elements.clear();
+
+    config.get(section, "OverlayImage", elements);
+    if (overlay_image.clear(), elements.size() >= 1)
+        overlay_image = std::filesystem::u8path(elements[0]);
+    if (overlay_freelimit = std::numeric_limits<decltype(overlay_freelimit)>::max(), elements.size() >= 2)
+        if ((overlay_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || overlay_freelimit == ULLONG_MAX)
+            overlay_freelimit = std::numeric_limits<decltype(overlay_freelimit)>::max();
+    elements.clear();
+
+    config.get(section, "DepthImage", elements);
+    if (depth_image.clear(), elements.size() >= 1)
+        depth_image = std::filesystem::u8path(elements[0]);
+    if (depth_freelimit = std::numeric_limits<decltype(depth_freelimit)>::max(), elements.size() >= 2)
+        if ((depth_freelimit = strtoull(elements[1].c_str(), nullptr, 10)) == 0 || depth_freelimit == ULLONG_MAX)
+            depth_freelimit = std::numeric_limits<decltype(depth_freelimit)>::max();
+    elements.clear();
+
     if (!config.get(section, "RepeatCount", repeat_count))
         repeat_count = 1;
     if (!config.get(section, "RepeatInterval", repeat_interval))
@@ -108,13 +143,13 @@ void screenshot_myset::save(ini_file &config) const
 {
     std::string section = ':' + name;
 
-    config.set(section, "AfterImage", after_image);
-    config.set(section, "BeforeImage", before_image);
+    config.set(section, "AfterImage", { after_image.u8string(), std::to_string(after_freelimit) });
+    config.set(section, "BeforeImage", { before_image.u8string(), std::to_string(before_freelimit) });
     config.set(section, "ImageFormat", image_format);
     config.set(section, "KeyScreenshot", screenshot_key_data);
-    config.set(section, "OriginalImage", original_image);
-    config.set(section, "OverlayImage", overlay_image);
-    config.set(section, "DepthImage", depth_image);
+    config.set(section, "OriginalImage", { original_image.u8string(), std::to_string(original_freelimit) });
+    config.set(section, "OverlayImage", { overlay_image.u8string(), std::to_string(overlay_freelimit) });
+    config.set(section, "DepthImage", { depth_image.u8string(), std::to_string(depth_freelimit) });
     config.set(section, "RepeatCount", repeat_count);
     config.set(section, "RepeatInterval", repeat_interval);
     config.set(section, "WorkerThreads", worker_threads);
@@ -341,23 +376,29 @@ void screenshot::save()
     enum { ok, open_error, write_error } result = ok;
 
     image_file.clear();
+    uint64_t freelimit = std::numeric_limits<uint64_t>::max();
 
     switch (kind)
     {
         case screenshot_kind::after:
             image_file = myset.after_image;
+            freelimit = myset.after_freelimit;
             break;
         case screenshot_kind::before:
             image_file = myset.before_image;
+            freelimit = myset.before_freelimit;
             break;
         case screenshot_kind::original:
             image_file = myset.original_image;
+            freelimit = myset.original_freelimit;
             break;
         case screenshot_kind::overlay:
             image_file = myset.overlay_image;
+            freelimit = myset.overlay_freelimit;
             break;
         case screenshot_kind::depth:
             image_file = myset.depth_image;
+            freelimit = myset.depth_freelimit;
             break;
         default:
             message = std::format("Unknown screenshot kind: %d", kind);
@@ -382,19 +423,45 @@ void screenshot::save()
         return;
     }
 
-    if (image_file.has_parent_path())
+    const std::filesystem::path parent_path = image_file.parent_path();
+    if (std::filesystem::create_directories(parent_path, ec), ec)
     {
-        if (const std::filesystem::path parent_path = image_file.parent_path();
-            std::filesystem::create_directories(parent_path, ec), ec)
-        {
-            message = std::format("Failed to create '%s' screenshot directory with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), parent_path.u8string().c_str());
-            reshade::log_message(reshade::log_level::error, message.c_str());
+        message = std::format("Failed to create '%s' screenshot directory with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), parent_path.u8string().c_str());
+        reshade::log_message(reshade::log_level::error, message.c_str());
 
-            result = open_error;
+        result = open_error;
 
-            state.error_occurs++;
-            return;
-        }
+        state.error_occurs++;
+        return;
+    }
+
+    ULARGE_INTEGER freeBytesAvailableToCaller{};
+    ULARGE_INTEGER totalNumberOfBytes{};
+    if (!GetDiskFreeSpaceExW(parent_path.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, nullptr))
+        return;
+
+    bool limit_exceeded = false;
+    float free_ratio = (double)freeBytesAvailableToCaller.QuadPart / totalNumberOfBytes.QuadPart;
+
+    if (freelimit >= 100) // Limit by absolute value
+        limit_exceeded = freeBytesAvailableToCaller.QuadPart < freelimit * 1024 * 1024 * 1; // FREEBYTES < FREELIMIT(MB)
+    else // Limit by percentage value
+        limit_exceeded = free_ratio < freelimit;
+
+    if (limit_exceeded)
+    {
+        ULARGE_INTEGER usedBytesAvailableToCaller{}; usedBytesAvailableToCaller.QuadPart = totalNumberOfBytes.QuadPart - freeBytesAvailableToCaller.QuadPart;
+
+        std::string usedBytesAvailableToCallerStr = addon::to_size_string(usedBytesAvailableToCaller.QuadPart);
+        std::string totalNumberOfBytesStr = addon::to_size_string(totalNumberOfBytes.QuadPart);
+
+        message = std::format("Blocked to create '%s' screenshot due to disk space limitation! %*s of %*s (%.1f%%) used (%.1f%%<%llu%%)", get_screenshot_kind_name(kind), usedBytesAvailableToCallerStr.size(), usedBytesAvailableToCallerStr.c_str(), totalNumberOfBytesStr.size(), totalNumberOfBytesStr.c_str(), (1.0 - free_ratio) * 100, free_ratio * 100, freelimit);
+        reshade::log_message(reshade::log_level::error, message.c_str());
+
+        result = open_error;
+
+        state.error_occurs++;
+        return;
     }
 
     if (kind == screenshot_kind::depth)

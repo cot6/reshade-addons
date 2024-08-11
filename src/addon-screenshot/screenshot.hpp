@@ -97,6 +97,12 @@ public:
     std::filesystem::path overlay_image;
     std::filesystem::path depth_image;
 
+    uint64_t original_freelimit = std::numeric_limits<uint64_t>::max();
+    uint64_t before_freelimit = std::numeric_limits<uint64_t>::max();
+    uint64_t after_freelimit = std::numeric_limits<uint64_t>::max();
+    uint64_t overlay_freelimit = std::numeric_limits<uint64_t>::max();
+    uint64_t depth_freelimit = std::numeric_limits<uint64_t>::max();
+
     unsigned int worker_threads = 0;
 
     std::filesystem::path playsound_path;
