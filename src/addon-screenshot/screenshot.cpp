@@ -359,7 +359,7 @@ void screenshot::save()
     enum { ok, open_error, write_error } result = ok;
 
     image_file.clear();
-    uint64_t freelimit = std::numeric_limits<uint64_t>::max();
+    uint64_t freelimit = 0;
 
     switch (kind)
     {
@@ -418,7 +418,7 @@ void screenshot::save()
         return;
     }
 
-    if (freelimit != 0 && freelimit != std::numeric_limits<decltype(freelimit)>::max())
+    if (freelimit != 0)
     {
         if (ULARGE_INTEGER diskBytes{}, freeBytes{};
             GetDiskFreeSpaceExW(parent_path.c_str(), &freeBytes, &diskBytes, nullptr))
