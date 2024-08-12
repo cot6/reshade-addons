@@ -8,6 +8,9 @@
 
 #include "dll_resources.hpp"
 
+#include "addon.hpp"
+#include "std_string_ext.hpp"
+
 #include "runtime_config.hpp"
 #include "screenshot.hpp"
 
@@ -69,18 +72,28 @@ void screenshot_myset::load(const ini_file &config)
 
     if (!config.get(section, "AfterImage", after_image))
         after_image.clear();
+    if (!config.get(section, "AfterImageDiskFreeLimit", after_freelimit))
+        after_freelimit = 0;
     if (!config.get(section, "BeforeImage", before_image))
         before_image.clear();
+    if (!config.get(section, "BeforeImageDiskFreeLimit", before_freelimit))
+        before_freelimit = 0;
     if (!config.get(section, "ImageFormat", image_format))
         image_format = 0;
     if (!config.get(section, "KeyScreenshot", screenshot_key_data))
         std::memset(screenshot_key_data, 0, sizeof(screenshot_key_data));
     if (!config.get(section, "OriginalImage", original_image))
         original_image.clear();
+    if (!config.get(section, "OriginalImageDiskFreeLimit", original_freelimit))
+        original_freelimit = 0;
     if (!config.get(section, "OverlayImage", overlay_image))
         overlay_image.clear();
+    if (!config.get(section, "OverlayImageDiskFreeLimit", overlay_freelimit))
+        overlay_freelimit = 0;
     if (!config.get(section, "DepthImage", depth_image))
         depth_image.clear();
+    if (!config.get(section, "DepthImageDiskFreeLimit", depth_freelimit))
+        depth_freelimit = 0;
     if (!config.get(section, "RepeatCount", repeat_count))
         repeat_count = 1;
     if (!config.get(section, "RepeatInterval", repeat_interval))
@@ -109,12 +122,17 @@ void screenshot_myset::save(ini_file &config) const
     std::string section = ':' + name;
 
     config.set(section, "AfterImage", after_image);
+    config.set(section, "AfterImageDiskFreeLimit", after_freelimit);
     config.set(section, "BeforeImage", before_image);
+    config.set(section, "BeforeImageDiskFreeLimit", before_freelimit);
     config.set(section, "ImageFormat", image_format);
     config.set(section, "KeyScreenshot", screenshot_key_data);
     config.set(section, "OriginalImage", original_image);
+    config.set(section, "OriginalImageDiskFreeLimit", original_freelimit);
     config.set(section, "OverlayImage", overlay_image);
+    config.set(section, "OverlayImageDiskFreeLimit", overlay_freelimit);
     config.set(section, "DepthImage", depth_image);
+    config.set(section, "DepthImageDiskFreeLimit", depth_freelimit);
     config.set(section, "RepeatCount", repeat_count);
     config.set(section, "RepeatInterval", repeat_interval);
     config.set(section, "WorkerThreads", worker_threads);
@@ -341,23 +359,29 @@ void screenshot::save()
     enum { ok, open_error, write_error } result = ok;
 
     image_file.clear();
+    uint64_t freelimit = 0;
 
     switch (kind)
     {
         case screenshot_kind::after:
             image_file = myset.after_image;
+            freelimit = myset.after_freelimit;
             break;
         case screenshot_kind::before:
             image_file = myset.before_image;
+            freelimit = myset.before_freelimit;
             break;
         case screenshot_kind::original:
             image_file = myset.original_image;
+            freelimit = myset.original_freelimit;
             break;
         case screenshot_kind::overlay:
             image_file = myset.overlay_image;
+            freelimit = myset.overlay_freelimit;
             break;
         case screenshot_kind::depth:
             image_file = myset.depth_image;
+            freelimit = myset.depth_freelimit;
             break;
         default:
             message = std::format("Unknown screenshot kind: %d", kind);
@@ -382,18 +406,60 @@ void screenshot::save()
         return;
     }
 
-    if (image_file.has_parent_path())
+    const std::filesystem::path parent_path = image_file.parent_path();
+    if (std::filesystem::create_directories(parent_path, ec), ec)
     {
-        if (const std::filesystem::path parent_path = image_file.parent_path();
-            std::filesystem::create_directories(parent_path, ec), ec)
+        message = std::format("Failed to create '%s' screenshot directory with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), parent_path.u8string().c_str());
+        reshade::log_message(reshade::log_level::error, message.c_str());
+
+        result = open_error;
+
+        state.error_occurs++;
+        return;
+    }
+
+    if (freelimit != 0)
+    {
+        if (ULARGE_INTEGER diskBytes{}, freeBytes{};
+            GetDiskFreeSpaceExW(parent_path.c_str(), &freeBytes, &diskBytes, nullptr))
         {
-            message = std::format("Failed to create '%s' screenshot directory with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), parent_path.u8string().c_str());
-            reshade::log_message(reshade::log_level::error, message.c_str());
+            const float free_ratio = (double)freeBytes.QuadPart / diskBytes.QuadPart;
+            bool limit_exceeded = false;
 
-            result = open_error;
+            if (freelimit >= 100) // Limit by absolute value
+                limit_exceeded = freeBytes.QuadPart < freelimit * 1024 * 1024 * 1; // FREEBYTES < FREELIMIT(MB)
+            else // Limit by percentage value
+                limit_exceeded = free_ratio < freelimit;
 
-            state.error_occurs++;
-            return;
+            if (limit_exceeded)
+            {
+                ULARGE_INTEGER usedBytes{}; usedBytes.QuadPart = diskBytes.QuadPart - freeBytes.QuadPart;
+
+                const std::string usedBytesStr = addon::to_size_string(usedBytes.QuadPart);
+                const std::string diskBytesStr = addon::to_size_string(diskBytes.QuadPart);
+
+                message = std::format("Blocked to create '%s' screenshot due to disk space limitation! %*s (%.1f%%) used of %*s (%.1f%% free < %llu%%)", get_screenshot_kind_name(kind),
+                    usedBytesStr.size(), usedBytesStr.c_str(), (1.0 - free_ratio) * 100,
+                    diskBytesStr.size(), diskBytesStr.c_str(), free_ratio * 100, freelimit);
+                reshade::log_message(reshade::log_level::error, message.c_str());
+
+                result = open_error;
+
+                state.error_occurs++;
+                return;
+            }
+        }
+        else
+        {
+#ifdef _DEBUG
+            ec = std::error_code(GetLastError(), std::system_category());
+
+            const std::string reason = format_message(ec.value());
+            const std::string target = parent_path.u8string();
+
+            message = std::format("GetDiskFreeSpaceExW() returns %d! '%*s' \"%*s\"", ec.value(), reason.size(), reason.c_str(), target.size(), target.c_str());
+            reshade::log_message(reshade::log_level::debug, message.c_str());
+#endif
         }
     }
 

@@ -95,6 +95,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\deps\fpng\src\fpng.h" />
+    <ClInclude Include="..\share\addon.hpp" />
     <ClInclude Include="..\share\dll_resources.hpp" />
     <ClInclude Include="..\share\imgui_widgets.hpp" />
     <ClInclude Include="..\share\input.hpp" />
@@ -107,6 +108,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\deps\fpng\src\fpng.cpp" />
+    <ClCompile Include="..\share\addon.cpp" />
     <ClCompile Include="..\share\dll_resources.cpp" />
     <ClCompile Include="..\share\imgui_widgets.cpp" />
     <ClCompile Include="..\share\input.cpp" />
