@@ -268,7 +268,13 @@ static bool on_reshade_overlay_uniform_variable(reshade::api::effect_runtime *ru
                 ctx.config.save(ini_file::load_cache(ctx.environment.addon_adjustdepth_config_path));
             }
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
-                ImGui::SetTooltip(_("Create a shortcut to apply the current adjustments."));
+            {
+                if (ImGui::BeginTooltip())
+                {
+                    ImGui::TextUnformatted(_("Create a shortcut to apply the current adjustments."));
+                    ImGui::EndTooltip();
+                }
+            }
             ImGui::EndDisabled();
 
             for (auto it = ctx.config.shortcuts.begin(); it != ctx.config.shortcuts.end();)

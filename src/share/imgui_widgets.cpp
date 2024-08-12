@@ -47,10 +47,14 @@ bool reshade::imgui::key_input_box(const char *name, const char *hint, unsigned 
     }
     else if (hint && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
     {
-        std::string tooltip = hint;
-        tooltip.append(2, '\n');
-        tooltip += _("Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut.");
-        ImGui::SetTooltip("%*s", tooltip.size(), tooltip.c_str());
+        if (ImGui::BeginTooltip())
+        {
+            std::string tooltip = hint;
+            tooltip.append(2, '\n');
+            tooltip += _("Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut.");
+            ImGui::TextUnformatted(tooltip.c_str(), tooltip.c_str() + tooltip.size());
+            ImGui::EndTooltip();
+        }
     }
 
     return res;

@@ -713,6 +713,15 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
                     ImGui::EndTabItem();
                 }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                {
+                    if (ImGui::BeginTooltip())
+                    {
+                        ImGui::TextUnformatted(_("Set save paths for screenshots."));
+                        ImGui::EndTooltip();
+                    }
+                }
+
                 if (ImGui::BeginTabItem(_("Free space limit"), nullptr, ImGuiTabItemFlags_None))
                 {
                     auto select_format = [](uint64_t size) -> std::string { return (size == 0 || size == std::numeric_limits<decltype(size)>::max()) ? _("Disabled") : size >= 100 ? "%d MB" : "%d %%"; };
@@ -775,6 +784,14 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
                     ImGui::EndTabItem();
                 }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                {
+                    if (ImGui::BeginTooltip())
+                    {
+                        ImGui::TextUnformatted(_("Set thresholds to block taking screenshots to preserve the free disk space."));
+                        ImGui::EndTooltip();
+                    }
+                }
 
                 ImGui::EndTabBar();
                 ImGui::Dummy(ImVec2());
@@ -786,10 +803,13 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
                     modified = true;
                 }
-                if (ImGui::BeginItemTooltip())
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                 {
-                    ImGui::TextUnformatted(_("Specify the number of frames to save after pressing the screenshot shortcut key. To abort capture, re-enter the screenshot key."));
-                    ImGui::EndTooltip();
+                    if (ImGui::BeginTooltip())
+                    {
+                        ImGui::TextUnformatted(_("Specify the number of frames to save after pressing the screenshot shortcut key. To abort capture, re-enter the screenshot key."));
+                        ImGui::EndTooltip();
+                    }
                 }
                 if (ImGui::SliderInt(_("Repeat interval"), reinterpret_cast<int *>(&screenshot_myset.repeat_interval), 1, 60, screenshot_myset.repeat_interval > 1 ? _("%d frames") : _("every frame"), ImGuiSliderFlags_None))
                 {
@@ -798,10 +818,13 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
                     modified = true;
                 }
-                if (ImGui::BeginItemTooltip())
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                 {
-                    ImGui::TextUnformatted(_("Specify the interval of frames to be save until the specified number of frames."));
-                    ImGui::EndTooltip();
+                    if (ImGui::BeginTooltip())
+                    {
+                        ImGui::TextUnformatted(_("Specify the interval of frames to be save until the specified number of frames."));
+                        ImGui::EndTooltip();
+                    }
                 }
                 if (ImGui::SliderInt(_("Worker threads"), reinterpret_cast<int *>(&screenshot_myset.worker_threads), 0, std::thread::hardware_concurrency(), screenshot_myset.worker_threads == 0 ? _("unlimited") : _("%d threads")))
                 {
@@ -810,10 +833,13 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
                     modified = true;
                 }
-                if (ImGui::BeginItemTooltip())
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                 {
-                    ImGui::TextUnformatted(_("Specify the number of threads to compress the captured frames to specified image files."));
-                    ImGui::EndTooltip();
+                    if (ImGui::BeginTooltip())
+                    {
+                        ImGui::TextUnformatted(_("Specify the number of threads to compress the captured frames to specified image files."));
+                        ImGui::EndTooltip();
+                    }
                 }
                 uint32_t width = 0, height = 0;
                 runtime->get_screenshot_width_and_height(&width, &height);
@@ -839,10 +865,13 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     "[libtiff] 24-bit TIFF\0"
                     "[libtiff] 32-bit TIFF\0"
                 );
-                if (ImGui::BeginItemTooltip())
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                 {
-                    ImGui::TextUnformatted(_("Select the image file format.\nHowever, the depth is always saved in TIFF format regardless of this selection."));
-                    ImGui::EndTooltip();
+                    if (ImGui::BeginTooltip())
+                    {
+                        ImGui::TextUnformatted(_("Select the image file format.\nHowever, the depth is always saved in TIFF format regardless of this selection."));
+                        ImGui::EndTooltip();
+                    }
                 }
                 if (screenshot_myset.image_format == 0 || screenshot_myset.image_format == 1)
                 {
