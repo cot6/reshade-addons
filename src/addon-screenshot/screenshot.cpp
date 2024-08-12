@@ -418,33 +418,49 @@ void screenshot::save()
         return;
     }
 
-    ULARGE_INTEGER freeBytesAvailableToCaller{};
-    ULARGE_INTEGER totalNumberOfBytes{};
-    if (!GetDiskFreeSpaceExW(parent_path.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, nullptr))
-        return;
-
-    bool limit_exceeded = false;
-    float free_ratio = (double)freeBytesAvailableToCaller.QuadPart / totalNumberOfBytes.QuadPart;
-
-    if (freelimit >= 100) // Limit by absolute value
-        limit_exceeded = freeBytesAvailableToCaller.QuadPart < freelimit * 1024 * 1024 * 1; // FREEBYTES < FREELIMIT(MB)
-    else // Limit by percentage value
-        limit_exceeded = free_ratio < freelimit;
-
-    if (limit_exceeded)
+    if (freelimit != 0 && freelimit != std::numeric_limits<decltype(freelimit)>::max())
     {
-        ULARGE_INTEGER usedBytesAvailableToCaller{}; usedBytesAvailableToCaller.QuadPart = totalNumberOfBytes.QuadPart - freeBytesAvailableToCaller.QuadPart;
+        if (ULARGE_INTEGER diskBytes{}, freeBytes{};
+            GetDiskFreeSpaceExW(parent_path.c_str(), &freeBytes, &diskBytes, nullptr))
+        {
+            const float free_ratio = (double)freeBytes.QuadPart / diskBytes.QuadPart;
+            bool limit_exceeded = false;
 
-        std::string usedBytesAvailableToCallerStr = addon::to_size_string(usedBytesAvailableToCaller.QuadPart);
-        std::string totalNumberOfBytesStr = addon::to_size_string(totalNumberOfBytes.QuadPart);
+            if (freelimit >= 100) // Limit by absolute value
+                limit_exceeded = freeBytes.QuadPart < freelimit * 1024 * 1024 * 1; // FREEBYTES < FREELIMIT(MB)
+            else // Limit by percentage value
+                limit_exceeded = free_ratio < freelimit;
 
-        message = std::format("Blocked to create '%s' screenshot due to disk space limitation! %*s of %*s (%.1f%%) used (%.1f%%<%llu%%)", get_screenshot_kind_name(kind), usedBytesAvailableToCallerStr.size(), usedBytesAvailableToCallerStr.c_str(), totalNumberOfBytesStr.size(), totalNumberOfBytesStr.c_str(), (1.0 - free_ratio) * 100, free_ratio * 100, freelimit);
-        reshade::log_message(reshade::log_level::error, message.c_str());
+            if (limit_exceeded)
+            {
+                ULARGE_INTEGER usedBytes{}; usedBytes.QuadPart = diskBytes.QuadPart - freeBytes.QuadPart;
 
-        result = open_error;
+                const std::string usedBytesStr = addon::to_size_string(usedBytes.QuadPart);
+                const std::string diskBytesStr = addon::to_size_string(diskBytes.QuadPart);
 
-        state.error_occurs++;
-        return;
+                message = std::format("Blocked to create '%s' screenshot due to disk space limitation! %*s (%.1f%%) used of %*s (%.1f%% free < %llu%%)", get_screenshot_kind_name(kind),
+                    usedBytesStr.size(), usedBytesStr.c_str(), (1.0 - free_ratio) * 100,
+                    diskBytesStr.size(), diskBytesStr.c_str(), free_ratio * 100, freelimit);
+                reshade::log_message(reshade::log_level::error, message.c_str());
+
+                result = open_error;
+
+                state.error_occurs++;
+                return;
+            }
+        }
+        else
+        {
+#ifdef _DEBUG
+            ec = std::error_code(GetLastError(), std::system_category());
+
+            const std::string reason = format_message(ec.value());
+            const std::string target = parent_path.u8string();
+
+            message = std::format("GetDiskFreeSpaceExW() returns %d! '%*s' \"%*s\"", ec.value(), reason.size(), reason.c_str(), target.size(), target.c_str());
+            reshade::log_message(reshade::log_level::debug, message.c_str());
+#endif
+        }
     }
 
     if (kind == screenshot_kind::depth)
