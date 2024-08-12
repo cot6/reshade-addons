@@ -429,7 +429,7 @@ void screenshot::save()
             if (freelimit >= 100) // Limit by absolute value
                 limit_exceeded = freeBytes.QuadPart < freelimit * 1024 * 1024 * 1; // FREEBYTES < FREELIMIT(MB)
             else // Limit by percentage value
-                limit_exceeded = free_ratio < freelimit;
+                limit_exceeded = free_ratio * 100 < freelimit;
 
             if (limit_exceeded)
             {
