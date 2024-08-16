@@ -24,12 +24,12 @@
     </BuildLog>
     <ClCompile>
       <AdditionalIncludeDirectories>
+        $(MSBuildProjectDirectory)\res;
         $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\include;
         $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\res\fonts;
         $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\deps\imgui;
         $(MSBuildThisFileDirectory)..\deps\fpng\src;
         $(MSBuildThisFileDirectory)..\deps\utfcpp\source;
-        $(MSBuildThisFileDirectory)res;
         $(MSBuildThisFileDirectory)share;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
@@ -43,7 +43,7 @@
     </ClCompile>
     <Link>
       <AdditionalIncludeDirectories>
-        $(MSBuildThisFileDirectory)res;
+        $(MSBuildProjectDirectory)\res;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>

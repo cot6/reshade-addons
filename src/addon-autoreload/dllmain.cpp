@@ -39,7 +39,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
         return;
 
     std::vector<std::string> changes;
-    const size_t size = ctx._filesystem_update_listener.read(changes);
+    ctx._filesystem_update_listener.read(changes);
 
     for (const std::string &filename : changes)
         runtime->require_reload_effect(filename.c_str());
@@ -109,10 +109,7 @@ static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
             effect_search_path = effect_search_path.parent_path();
 
         const std::string u8path = effect_search_path.u8string();
-        const efsw::WatchID watch_id = ctx._file_watcher.addWatch(u8path, reinterpret_cast<efsw::FileWatchListener *>(&ctx._filesystem_update_listener), recursive, { efsw::WatcherOption(efsw::Option::WinNotifyFilter, FILE_NOTIFY_CHANGE_SIZE) });
-
-        if (watch_id <= efsw::Error::NoError)
-            reshade::log_message(reshade::log_level::error, efsw::Errors::Log::getLastErrorLog().c_str());
+        ctx._file_watcher.addWatch(u8path, reinterpret_cast<efsw::FileWatchListener *>(&ctx._filesystem_update_listener), recursive, { efsw::WatcherOption(efsw::Option::WinNotifyFilter, FILE_NOTIFY_CHANGE_SIZE) });
     }
 
     ctx._file_watcher.watch();
