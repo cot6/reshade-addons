@@ -29,6 +29,7 @@
         $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\deps\imgui;
         $(MSBuildThisFileDirectory)..\deps\fpng\src;
         $(MSBuildThisFileDirectory)..\deps\utfcpp\source;
+        $(MSBuildThisFileDirectory)res;
         $(MSBuildThisFileDirectory)share;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
@@ -41,6 +42,10 @@
       <WarningLevel>Level4</WarningLevel>
     </ClCompile>
     <Link>
+      <AdditionalIncludeDirectories>
+        $(MSBuildThisFileDirectory)res;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
