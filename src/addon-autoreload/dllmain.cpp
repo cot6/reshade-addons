@@ -146,7 +146,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                     }
                 });
 
-            runtime->require_reload_effect(filename.c_str());
+            runtime->reload_effect_next_frame(filename.c_str());
         }
     }
 }
