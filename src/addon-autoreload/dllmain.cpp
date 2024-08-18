@@ -1,9 +1,13 @@
-﻿// SPDX-FileCopyrightText: 2018 seri14
-// SPDX-License-Identifier: BSD-3-Clause
+﻿/*
+ * SPDX-FileCopyrightText: 2018 seri14
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 
 #include <cassert>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
+#include <utility>
 #include <vector>
 
 #include <Windows.h>
@@ -28,6 +32,19 @@ static void on_destroy_effect_runtime(reshade::api::effect_runtime *runtime)
 
     runtime->destroy_private_data<autoreload_context>();
 }
+static void on_present(reshade::api::command_queue *, reshade::api::swapchain *swapchain, const reshade::api::rect *, const reshade::api::rect *, uint32_t , const reshade::api::rect *)
+{
+    uint64_t effect_runtime; swapchain->get_private_data(s_runtime_id, &effect_runtime);
+    if (effect_runtime == 0)
+        return;
+    reshade::api::effect_runtime *runtime = reinterpret_cast<reshade::api::effect_runtime *>(effect_runtime);
+    autoreload_context &ctx = runtime->get_private_data<autoreload_context>();
+
+    if (std::addressof(ctx) == nullptr)
+        return;
+
+    ctx._current_frame++;
+}
 static void on_reshade_present(reshade::api::effect_runtime *runtime)
 {
     if (runtime == nullptr)
@@ -38,11 +55,100 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
     if (std::addressof(ctx) == nullptr)
         return;
 
-    std::vector<std::string> changes;
-    ctx._filesystem_update_listener.read(changes);
+    if (ctx._current_frame == ctx._reloading_frame + 1)
+    {
+        if (!ctx._reloading_techniques.empty())
+        {
+            std::vector<std::pair<reshade::api::effect_technique, std::string>> techniques_order;
+            runtime->enumerate_techniques(nullptr,
+                [&techniques_order](reshade::api::effect_runtime *runtime, reshade::api::effect_technique technique) {
+                    char technique_name[256]{};
+                    size_t size = sizeof(technique_name);
+                    runtime->get_technique_name(technique, technique_name, &size);
+                    techniques_order.emplace_back(technique, std::string(technique_name, size));
+                });
 
-    for (const std::string &filename : changes)
-        runtime->require_reload_effect(filename.c_str());
+            for (technique_state &state : ctx._reloading_techniques)
+            {
+                std::vector<reshade::api::effect_technique> order(techniques_order.size(), reshade::api::effect_technique{ std::numeric_limits<uint64_t>::max() });
+
+                runtime->enumerate_techniques(nullptr,
+                    [&ctx, &techniques_order, &order](reshade::api::effect_runtime *runtime, reshade::api::effect_technique technique) {
+                        auto order_it = std::find_if(techniques_order.cbegin(), techniques_order.cend(), [technique](const std::pair<reshade::api::effect_technique, std::string> &pair) { return pair.first == technique; });
+                        if (order_it == techniques_order.cend())
+                            return;
+                        const std::string &name = order_it->second;
+
+                        if (auto state_it = std::find_if(ctx._reloading_techniques.begin(), ctx._reloading_techniques.end(), [&name](technique_state &state) { return state.name == name; });
+                            state_it != ctx._reloading_techniques.end())
+                        {
+                            technique_state &state = *state_it;
+                            state.used = true;
+
+                            if (state.enabled && !runtime->get_technique_state(technique))
+                                runtime->set_technique_state(technique, true);
+
+                            if (techniques_order.size() == state.order.size())
+                            {
+                                std::fill(order.begin(), order.end(), reshade::api::effect_technique{ std::numeric_limits<uint64_t>::max() });
+                                for (size_t i = 0; order.size() > i; i++)
+                                {
+                                    const std::string &name = state.order[i];
+                                    auto it = std::find_if(techniques_order.cbegin(), techniques_order.cend(), [&name](const std::pair<reshade::api::effect_technique, std::string> &pair) {
+                                        return name == pair.second; });
+                                    if (it != techniques_order.cend())
+                                        order[i] = it->first;
+                                    else
+                                        break;
+                                }
+                            }
+                        }
+                    });
+
+                if (std::find(order.cbegin(), order.cend(), reshade::api::effect_technique{ std::numeric_limits<uint64_t>::max() }) == order.cend())
+                    runtime->reorder_techniques(order.size(), order.data());
+            }
+
+            if (auto remove_it = std::find_if(ctx._reloading_techniques.begin(), ctx._reloading_techniques.end(), [](technique_state &state) { return state.used; });
+                remove_it != ctx._reloading_techniques.end())
+                ctx._reloading_techniques.erase(remove_it, ctx._reloading_techniques.end());
+        }
+        if (ctx._reloading_techniques.empty())
+            ctx._reloaded_frame = ctx._current_frame;
+    }
+
+    if (std::vector<std::string> changes;
+        ctx._filesystem_update_listener.read(changes), !changes.empty())
+    {
+        for (const std::string &filename : changes)
+        {
+            runtime->enumerate_techniques(filename.c_str(),
+                [&ctx](reshade::api::effect_runtime *runtime, reshade::api::effect_technique technique) {
+                    char technique_name[256]{};
+                    size_t size = sizeof(technique_name);
+                    runtime->get_technique_name(technique, technique_name, &size);
+                    const std::string_view name(technique_name, size);
+                    auto it = std::find_if(ctx._reloading_techniques.begin(), ctx._reloading_techniques.end(), [&name](technique_state &state) {return state.name == name; });
+                    technique_state &state = it == ctx._reloading_techniques.end() ? ctx._reloading_techniques.emplace_back() : *it;
+                    if (state.name.empty())
+                        state.name = name;
+                    if (state.enabled = runtime->get_technique_state(technique))
+                        state.order.clear();
+                    if (state.order.empty())
+                    {
+                        runtime->enumerate_techniques(nullptr,
+                           [&state](reshade::api::effect_runtime *runtime, reshade::api::effect_technique technique) {
+                               char technique_name[256]{};
+                               size_t size = sizeof(technique_name);
+                               runtime->get_technique_name(technique, technique_name, &size);
+                               state.order.emplace_back(technique_name, size);
+                           });
+                    }
+                });
+
+            runtime->require_reload_effect(filename.c_str());
+        }
+    }
 }
 static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
 {
@@ -57,7 +163,7 @@ static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
     for (const std::string &directory : ctx._file_watcher.directories())
         ctx._file_watcher.removeWatch(directory);
 
-    std::vector<char> buf; buf.resize(1024 * 64);
+    std::vector<char> buf; buf.resize(static_cast<size_t>(1024) * 64);
     size_t size = 0;
 
     size = buf.size();
@@ -113,6 +219,7 @@ static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
     }
 
     ctx._file_watcher.watch();
+    ctx._reloading_frame = ctx._current_frame;
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
@@ -124,6 +231,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
                 return FALSE;
             reshade::register_event<reshade::addon_event::init_effect_runtime>(on_init_effect_runtime);
             reshade::register_event<reshade::addon_event::destroy_effect_runtime>(on_destroy_effect_runtime);
+            reshade::register_event<reshade::addon_event::present>(on_present);
             reshade::register_event<reshade::addon_event::reshade_present>(on_reshade_present);
             reshade::register_event<reshade::addon_event::reshade_reloaded_effects>(on_reshade_reloaded_effects);
             break;
