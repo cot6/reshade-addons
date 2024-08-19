@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ReShadeModuleName>reshade.v12</ReShadeModuleName>
+    <ReShadeModuleName>reshade.v14</ReShadeModuleName>
   </PropertyGroup>
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -24,8 +24,8 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Globals">
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{C41F5614-4AC3-44F9-A00E-CF2F5F5A889B}</ProjectGuid>
-    <ProjectName>addon-screenshot</ProjectName>
+    <ProjectGuid>{55FF0FC0-5102-4528-807A-F878956A7C29}</ProjectGuid>
+    <ProjectName>addon-autoreload</ProjectName>
     <VCProjectVersion>15.0</VCProjectVersion>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)'=='Debug'">
@@ -41,22 +41,18 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Platform)'=='Win32'">
-    <TargetName>ReShade32-Screenshot-By-seri14</TargetName>
+    <TargetName>ReShade32-AutoReload-By-seri14</TargetName>
     <TargetExt>.addon32</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='x64'">
-    <TargetName>ReShade64-Screenshot-By-seri14</TargetName>
+    <TargetName>ReShade64-AutoReload-By-seri14</TargetName>
     <TargetExt>.addon64</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;ImTextureID=ImU64;FPNG_NO_STDIO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;ImTextureID=ImU64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>
-        winmm.lib;
-        %(AdditionalDependencies)
-      </AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
     </Link>
     <PreBuildEvent>
@@ -66,7 +62,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <Link>
-      <AdditionalDependencies>zlibd.lib;libpng16d.lib;tiffd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>efsw.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -78,7 +74,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
     <Link>
-      <AdditionalDependencies>zlib.lib;libpng16.lib;tiff.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>efsw.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>"XCOPY" "$(OutDir)$(TargetName).*" "$(ProjectDir)..\..\publish\source\bin\" /Y /Q</Command>
@@ -86,27 +82,14 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\deps\fpng\src\fpng.h" />
-    <ClInclude Include="..\share\addon.hpp" />
-    <ClInclude Include="..\share\dll_resources.hpp" />
-    <ClInclude Include="..\share\imgui_widgets.hpp" />
-    <ClInclude Include="..\share\input.hpp" />
-    <ClInclude Include="..\share\runtime_config.hpp" />
-    <ClInclude Include="..\share\std_string_ext.hpp" />
+    <ClInclude Include="autoreload.hpp" />
     <ClInclude Include="dllmain.hpp" />
-    <ClInclude Include="screenshot.hpp" />
     <ClInclude Include="res\resource.h" />
     <ClInclude Include="res\version.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\deps\fpng\src\fpng.cpp" />
-    <ClCompile Include="..\share\addon.cpp" />
-    <ClCompile Include="..\share\dll_resources.cpp" />
-    <ClCompile Include="..\share\imgui_widgets.cpp" />
-    <ClCompile Include="..\share\input.cpp" />
-    <ClCompile Include="..\share\runtime_config.cpp" />
+    <ClCompile Include="autoreload.cpp" />
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="screenshot.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="res\resource.rc" />

@@ -6,8 +6,6 @@
 
 #include <reshade.hpp>
 
-#include <string>
-
 #if !defined(_DEBUG) && ADDON_MAJOR < RESHADE_API_VERSION
 // The major version must be the same as the API revision number.
 #endif

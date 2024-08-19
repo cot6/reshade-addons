@@ -19,6 +19,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{154A0355
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "addon-adjustdepth", "src\addon-adjustdepth\adjustdepth.vcxproj", "{C11071C7-2F5E-4759-9F59-9E14C040AF9C}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "addon-autoreload", "src\addon-autoreload\autoreload.vcxproj", "{55FF0FC0-5102-4528-807A-F878956A7C29}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "addon-editorhistory", "src\addon-editorhistory\editorhistory.vcxproj", "{9513A1A1-E1F9-4E48-A2EC-757C69DCD2EE}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "addon-screenshot", "src\addon-screenshot\screenshot.vcxproj", "{C41F5614-4AC3-44F9-A00E-CF2F5F5A889B}"
@@ -41,6 +43,14 @@ Global
 		{C11071C7-2F5E-4759-9F59-9E14C040AF9C}.Release|32-bit.Build.0 = Release|Win32
 		{C11071C7-2F5E-4759-9F59-9E14C040AF9C}.Release|64-bit.ActiveCfg = Release|x64
 		{C11071C7-2F5E-4759-9F59-9E14C040AF9C}.Release|64-bit.Build.0 = Release|x64
+		{55FF0FC0-5102-4528-807A-F878956A7C29}.Debug|32-bit.ActiveCfg = Debug|Win32
+		{55FF0FC0-5102-4528-807A-F878956A7C29}.Debug|32-bit.Build.0 = Debug|Win32
+		{55FF0FC0-5102-4528-807A-F878956A7C29}.Debug|64-bit.ActiveCfg = Debug|x64
+		{55FF0FC0-5102-4528-807A-F878956A7C29}.Debug|64-bit.Build.0 = Debug|x64
+		{55FF0FC0-5102-4528-807A-F878956A7C29}.Release|32-bit.ActiveCfg = Release|Win32
+		{55FF0FC0-5102-4528-807A-F878956A7C29}.Release|32-bit.Build.0 = Release|Win32
+		{55FF0FC0-5102-4528-807A-F878956A7C29}.Release|64-bit.ActiveCfg = Release|x64
+		{55FF0FC0-5102-4528-807A-F878956A7C29}.Release|64-bit.Build.0 = Release|x64
 		{9513A1A1-E1F9-4E48-A2EC-757C69DCD2EE}.Debug|32-bit.ActiveCfg = Debug|Win32
 		{9513A1A1-E1F9-4E48-A2EC-757C69DCD2EE}.Debug|32-bit.Build.0 = Debug|Win32
 		{9513A1A1-E1F9-4E48-A2EC-757C69DCD2EE}.Debug|64-bit.ActiveCfg = Debug|x64

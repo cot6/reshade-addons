@@ -24,6 +24,7 @@
     </BuildLog>
     <ClCompile>
       <AdditionalIncludeDirectories>
+        $(MSBuildProjectDirectory)\res;
         $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\include;
         $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\res\fonts;
         $(MSBuildThisFileDirectory)..\deps\$(ReShadeModuleName)\deps\imgui;
@@ -41,6 +42,10 @@
       <WarningLevel>Level4</WarningLevel>
     </ClCompile>
     <Link>
+      <AdditionalIncludeDirectories>
+        $(MSBuildProjectDirectory)\res;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>

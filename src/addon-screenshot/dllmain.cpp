@@ -124,12 +124,12 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
-    if (ctx.screenshotdepth_technique.handle != 0)
+    if (reshade::api::effect_technique technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14"); technique.handle != 0)
     {
         const bool enabled = ctx.is_screenshot_frame(screenshot_kind::depth);
 
-        if (runtime->get_technique_state(ctx.screenshotdepth_technique) != enabled)
-            runtime->set_technique_state(ctx.screenshotdepth_technique, enabled);
+        if (runtime->get_technique_state(technique) != enabled)
+            runtime->set_technique_state(technique, enabled);
     }
 
     if (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_while_myset_is_active &&
@@ -164,7 +164,7 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
     }
 
     if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
-        ctx.screenshotdepth_technique.handle != 0)
+        runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14").handle != 0)
     {
         auto get_texture_data = [runtime, device](reshade::api::resource resource, reshade::api::resource_usage state, std::vector<uint8_t> &texture_data, reshade::api::format &texture_format) -> bool
             {
@@ -398,15 +398,6 @@ static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
     // Disable keyboard shortcuts while typing into input boxes
     ctx.ignore_shortcuts = ImGui::IsAnyItemActive();
 }
-static void on_reshade_reloaded_effects(reshade::api::effect_runtime *runtime)
-{
-    reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
-        return;
-
-    ctx.screenshotdepth_technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14");
-}
 
 static const ImVec4 COLOR_RED = ImColor(240, 100, 100);
 static const ImVec4 COLOR_YELLOW = ImColor(204, 204, 0);
@@ -496,7 +487,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     // Important Errors
     // -------------------------------------
 
-    if (ctx.screenshotdepth_technique.handle == 0)
+    if (runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14").handle == 0)
         ImGui::TextColored(COLOR_RED, "%s", _("[BUGCHECK] \"Depth\" capture cannot be performed."));
 }
 static void draw_setting_window(reshade::api::effect_runtime *runtime)
@@ -997,7 +988,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         reshade::register_event<reshade::addon_event::reshade_finish_effects>(on_finish_effects);
         reshade::register_event<reshade::addon_event::reshade_overlay>(on_reshade_overlay);
         reshade::register_event<reshade::addon_event::reshade_present>(on_reshade_present);
-        reshade::register_event<reshade::addon_event::reshade_reloaded_effects>(on_reshade_reloaded_effects);
         reshade::register_overlay("OSD", draw_osd_window);
         reshade::register_overlay("Settings###settings", draw_setting_window);
 

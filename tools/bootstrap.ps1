@@ -18,21 +18,21 @@ Push-Location deps\vcpkg
 # --------------------------------------
 # [vcpkg] 依存関係を用意
 
-# 32-bit [tiff, libpng] (.lib /MT /MTd)
+# 32-bit [tiff, libpng, efsw] (.lib /MT /MTd)
 .\vcpkg install --recurse tiff[core]:x86-windows-static
-.\vcpkg install libpng:x86-windows-static
+.\vcpkg install libpng:x86-windows-static efsw:x86-windows-static
 
-# 32-bit [tiff, libpng] (.lib /MD /MDd)
+# 32-bit [tiff, libpng, efsw] (.lib /MD /MDd)
 .\vcpkg install --recurse tiff[core]:x86-windows-static-md
-.\vcpkg install libpng:x86-windows-static-md
+.\vcpkg install libpng:x86-windows-static-md efsw:x86-windows-static-md
 
-# 64-bit [tiff, libpng] (.lib /MT /MTd)
+# 64-bit [tiff, libpng, efsw] (.lib /MT /MTd)
 .\vcpkg install --recurse tiff[core]:x64-windows-static
-.\vcpkg install libpng:x64-windows-static
+.\vcpkg install libpng:x64-windows-static efsw:x64-windows-static
 
-# 64-bit [tiff, libpng] (.lib /MD /MDd)
+# 64-bit [tiff, libpng, efsw] (.lib /MD /MDd)
 .\vcpkg install --recurse tiff[core]:x64-windows-static-md
-.\vcpkg install libpng:x64-windows-static-md
+.\vcpkg install libpng:x64-windows-static-md efsw:x64-windows-static-md
 
 # --------------------------------------
 # 結果: 成功
