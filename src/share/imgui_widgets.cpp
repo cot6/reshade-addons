@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SPDX-FileCopyrightText: Copyright (C) 2014 Patrick Mours
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
@@ -89,6 +89,20 @@ bool reshade::imgui::popup_button(const char *label, float width, ImGuiWindowFla
     if (ImGui::Button(label, ImVec2(width, 0)))
         ImGui::OpenPopup(label); // Popups can have the same ID as other items without conflict
     return ImGui::BeginPopup(label, flags);
+}
+
+bool reshade::imgui::toggle_button(const char *label, bool &v, float width)
+{
+    if (v)
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonActive]);
+    const bool res = ImGui::Button(label, ImVec2(width, 0));
+    if (v)
+        ImGui::PopStyleColor();
+
+    if (res)
+        v = !v;
+
+    return res;
 }
 
 bool reshade::imgui::confirm_button(const char *label, float width, const char *message, ...)

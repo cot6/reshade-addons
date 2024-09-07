@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -252,7 +252,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
         screenshot.repeat_index = ctx.screenshot_repeat_index;
     }
 
-    if (ctx.screenshots.size() > 0)
+    if (!ctx.screenshots.empty())
     {
         for (size_t remain = std::min(ctx.screenshots.size(), ctx.screenshot_worker_threads - ctx.screenshot_active_threads);
             remain > 0;
@@ -456,7 +456,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
             uint64_t using_bytes = 0;
             std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
                 [&using_bytes](const screenshot &screenshot) {
-                        using_bytes += screenshot.pixels.size();
+                    using_bytes += screenshot.pixels.size();
                 });
             str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
             ImGui::Text("%*s", str.size(), str.c_str());
@@ -466,7 +466,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
     if (!hide_osd)
     {
         if (ctx.active_screenshot != nullptr &&
-            ctx.screenshot_state.last_elapsed / std::max<size_t>(1, ctx.screenshot_worker_threads) > (ctx.capture_time - ctx.capture_last).count())
+            static_cast<long>(ctx.screenshot_state.last_elapsed / std::max<size_t>(1, ctx.screenshot_worker_threads)) > (ctx.capture_time - ctx.capture_last).count())
             ImGui::TextColored(COLOR_YELLOW, "%s", _("Processing of screenshots is too slow!"));
 
         if (ctx.screenshot_state.error_occurs > 0)
@@ -497,17 +497,10 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
     if (std::addressof(ctx) == nullptr)
         return;
 
-    bool modified = false;
+    const float button_size = ImGui::GetFrameHeight();
+    const float button_spacing = ImGui::GetStyle().ItemInnerSpacing.x;
 
-    std::list<std::pair<std::string, reshade::api::effect_technique>> techniques;
-    runtime->enumerate_techniques(nullptr,
-        [runtime, &techniques](reshade::api::effect_runtime *, reshade::api::effect_technique &technique) {
-            if (!runtime->get_technique_state(technique))
-                return;
-            char technique_name[128] = "";
-            runtime->get_technique_name(technique, technique_name);
-            techniques.emplace_back(technique_name, technique);
-        });
+    bool modified = false;
 
     if (ImGui::CollapsingHeader(_("Screenshot Add-On [by seri14]"), ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -568,142 +561,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
 
                 ImGui::BeginTabBar("##screenshot_path_settings", ImGuiTabBarFlags_None);
 
-                if (ImGui::BeginTabItem(_("Screenshot path"), nullptr, ImGuiTabItemFlags_None))
-                {
-                    screenshot_kind screenshot_path_hovered = screenshot_kind::unset;
-                    if (!screenshot_myset.original_status.empty())
-                    {
-                        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-                        ImGui::TextUnformatted(screenshot_myset.original_status.data(), screenshot_myset.original_status.data() + screenshot_myset.original_status.size());
-                        ImGui::PopStyleColor();
-                    }
-                    if (buf[screenshot_myset.original_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                        ImGui::InputTextWithHint(_("Original image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
-                        ImGui::IsItemDeactivatedAfterEdit())
-                    {
-                        modified = true;
-                        screenshot_myset.original_image = std::filesystem::u8path(buf);
-
-                        validate_image_path(screenshot_kind::original, screenshot_myset.original_image, screenshot_myset.original_status);
-                    }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
-                        screenshot_path_hovered = screenshot_kind::original;
-                    if (!screenshot_myset.before_status.empty())
-                    {
-                        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-                        ImGui::TextUnformatted(screenshot_myset.before_status.data(), screenshot_myset.before_status.data() + screenshot_myset.before_status.size());
-                        ImGui::PopStyleColor();
-                    }
-                    if (buf[screenshot_myset.before_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                        ImGui::InputTextWithHint(_("Before image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
-                        ImGui::IsItemDeactivatedAfterEdit())
-                    {
-                        modified = true;
-                        screenshot_myset.before_image = std::filesystem::u8path(buf);
-
-                        validate_image_path(screenshot_kind::before, screenshot_myset.before_image, screenshot_myset.before_status);
-                    }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
-                        screenshot_path_hovered = screenshot_kind::before;
-                    if (!screenshot_myset.after_status.empty())
-                    {
-                        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-                        ImGui::TextUnformatted(screenshot_myset.after_status.data(), screenshot_myset.after_status.data() + screenshot_myset.after_status.size());
-                        ImGui::PopStyleColor();
-                    }
-                    if (buf[screenshot_myset.after_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                        ImGui::InputTextWithHint(_("After image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
-                        ImGui::IsItemDeactivatedAfterEdit())
-                    {
-                        modified = true;
-                        screenshot_myset.after_image = std::filesystem::u8path(buf);
-
-                        validate_image_path(screenshot_kind::after, screenshot_myset.after_image, screenshot_myset.after_status);
-                    }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
-                        screenshot_path_hovered = screenshot_kind::after;
-                    if (!screenshot_myset.overlay_status.empty())
-                    {
-                        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-                        ImGui::TextUnformatted(screenshot_myset.overlay_status.data(), screenshot_myset.overlay_status.data() + screenshot_myset.overlay_status.size());
-                        ImGui::PopStyleColor();
-                    }
-                    if (buf[screenshot_myset.overlay_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                        ImGui::InputTextWithHint(_("Overlay image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
-                        ImGui::IsItemDeactivatedAfterEdit())
-                    {
-                        modified = true;
-                        screenshot_myset.overlay_image = std::filesystem::u8path(buf);
-
-                        validate_image_path(screenshot_kind::overlay, screenshot_myset.overlay_image, screenshot_myset.overlay_status);
-                    }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
-                        screenshot_path_hovered = screenshot_kind::overlay;
-                    if (!screenshot_myset.depth_status.empty())
-                    {
-                        ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
-                        ImGui::TextUnformatted(screenshot_myset.depth_status.data(), screenshot_myset.depth_status.data() + screenshot_myset.depth_status.size());
-                        ImGui::PopStyleColor();
-                    }
-                    if (buf[screenshot_myset.depth_image.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
-                        ImGui::InputTextWithHint(_("Depth image"), _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter),
-                        ImGui::IsItemDeactivatedAfterEdit())
-                    {
-                        modified = true;
-                        screenshot_myset.depth_image = std::filesystem::u8path(buf);
-
-                        validate_image_path(screenshot_kind::depth, screenshot_myset.depth_image, screenshot_myset.depth_status);
-                    }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
-                        screenshot_path_hovered = screenshot_kind::depth;
-                    if (screenshot_path_hovered != screenshot_kind::unset)
-                    {
-                        std::string tooltip;
-                        switch (screenshot_path_hovered)
-                        {
-                            case original:
-                                tooltip += _("Capture the frame rendered by the game.");
-                                break;
-                            case before:
-                                tooltip += _("Capture the frame rendered by the game only if effects are enabled.");
-                                break;
-                            case after:
-                                tooltip += _("Capture the frame after applied the effect only if the effects are enabled.");
-                                break;
-                            case overlay:
-                                tooltip += _("Capture the frame after rendered the ReShade overlay.");
-                                break;
-                            case depth:
-                                tooltip += _("Capture the depth of the frame that was used in the game only if effects are enabled.");
-                                break;
-                        }
-                        tooltip += "\n\n";
-                        tooltip += _("Macros you can add that are resolved during saving:\n"
-                            "  <APP>               File name of the current executable file (%s)\n"
-                            "  <PRESET>            File name of the current preset file (%s)\n"
-                            "  <TOTALFRAME[:format]>\n"
-                            "                      Total number of screenshots\n"
-                            "                      (default: D1)\n"
-                            "  <MYSETFRAME[:format]>\n"
-                            "                      Total number of screenshots of myset\n"
-                            "                      (default: D1)\n"
-                            "  <TOTALTAKE[:format]>\n"
-                            "                      Total number of activation\n"
-                            "                      (default: D1)\n"
-                            "  <MYSETTAKE[:format]>\n"
-                            "                      Total number of activation of myset\n"
-                            "                      (default: D1)\n"
-                            "  <INDEX[:format]>    Current number of continuous screenshot\n"
-                            "                      (default: D1)\n"
-                            "  <DATE[:format]>     Timestamp of taken screenshot\n"
-                            "                      (default: %%Y-%%m-%%d %%H-%%M-%%S)");
-                        ImGui::SetTooltip(tooltip.c_str(),
-                            ctx.environment.reshade_executable_path.stem().string().c_str(),
-                            ctx.environment.reshade_preset_path.stem().string().c_str());
-                    }
-
-                    ImGui::EndTabItem();
-                }
+                bool tab_open = ImGui::BeginTabItem(_("Screenshot path"), nullptr, ImGuiTabItemFlags_None);
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                 {
                     if (ImGui::BeginTooltip())
@@ -712,8 +570,131 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         ImGui::EndTooltip();
                     }
                 }
+                if (tab_open)
+                {
+                    const auto draw_control_screenshot_path = [&](screenshot_kind kind, std::filesystem::path &path, std::string &status, const char *text_id, const char *enabled_id, unsigned short resource_id)
+                        {
+                            if (!status.empty())
+                            {
+                                ImGui::PushStyleColor(ImGuiCol_Text, COLOR_RED);
+                                ImGui::TextUnformatted(status.data(), status.data() + status.size());
+                                ImGui::PopStyleColor();
+                            }
 
-                if (ImGui::BeginTabItem(_("Free space limit"), nullptr, ImGuiTabItemFlags_None))
+                            buf[path.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
+
+                            ImGui::SetNextItemWidth(ImGui::CalcItemWidth() - button_size - button_spacing);
+                            ImGui::InputTextWithHint(text_id, _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter);
+                            bool item_hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
+
+                            if (ImGui::IsItemDeactivatedAfterEdit())
+                            {
+                                modified = true;
+                                path = std::filesystem::u8path(buf);
+                                validate_image_path(kind, path, status);
+                            }
+
+                            if (!path.empty())
+                            {
+                                ImGui::SameLine(0, button_spacing);
+                                if (bool v = !screenshot_myset.is_muted(kind); ImGui::Checkbox(enabled_id, &v))
+                                {
+                                    modified = true;
+                                    if (!v)
+                                        screenshot_myset.mute(kind);
+                                    else
+                                        screenshot_myset.unmute(kind);
+                                }
+                                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                                {
+                                    if (ImGui::BeginTooltip())
+                                    {
+                                        ImGui::TextUnformatted(_("Toggle whether to capture the frame."));
+                                        ImGui::EndTooltip();
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                ImGui::SameLine(0, button_spacing);
+                                ImGui::Dummy(ImVec2(button_size, 0));
+                            }
+
+                            ImGui::SameLine(0, button_spacing);
+                            std::string resource = reshade::resources::load_string(resource_id);
+                            ImGui::TextUnformatted(resource.c_str(), resource.c_str() + resource.size());
+                            item_hovered |= ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
+
+                            if (item_hovered)
+                            {
+                                if (ImGui::BeginTooltip())
+                                {
+                                    std::string tooltip;
+                                    switch (kind)
+                                    {
+                                        case original:
+                                            tooltip += _("Capture the frame rendered by the game.");
+                                            break;
+                                        case before:
+                                            tooltip += _("Capture the frame rendered by the game only if effects are enabled.");
+                                            break;
+                                        case after:
+                                            tooltip += _("Capture the frame after applied the effect only if the effects are enabled.");
+                                            break;
+                                        case overlay:
+                                            tooltip += _("Capture the frame after rendered the ReShade overlay.");
+                                            break;
+                                        case depth:
+                                            tooltip += _("Capture the depth of the frame that was used in the game only if effects are enabled.");
+                                            break;
+                                    }
+                                    tooltip += "\n\n";
+                                    tooltip += _("Macros you can add that are resolved during saving:\n"
+                                        "  <APP>               File name of the current executable file (%s)\n"
+                                        "  <PRESET>            File name of the current preset file (%s)\n"
+                                        "  <TOTALFRAME[:format]>\n"
+                                        "                      Total number of screenshots\n"
+                                        "                      (default: D1)\n"
+                                        "  <MYSETFRAME[:format]>\n"
+                                        "                      Total number of screenshots of myset\n"
+                                        "                      (default: D1)\n"
+                                        "  <TOTALTAKE[:format]>\n"
+                                        "                      Total number of activation\n"
+                                        "                      (default: D1)\n"
+                                        "  <MYSETTAKE[:format]>\n"
+                                        "                      Total number of activation of myset\n"
+                                        "                      (default: D1)\n"
+                                        "  <INDEX[:format]>    Current number of continuous screenshot\n"
+                                        "                      (default: D1)\n"
+                                        "  <DATE[:format]>     Timestamp of taken screenshot\n"
+                                        "                      (default: %%Y-%%m-%%d %%H-%%M-%%S)");
+                                    ImGui::Text(tooltip.c_str(),
+                                        ctx.environment.reshade_executable_path.stem().string().c_str(),
+                                        ctx.environment.reshade_preset_path.stem().string().c_str());
+                                    ImGui::EndTooltip();
+                                }
+                            }
+                        };
+
+                    draw_control_screenshot_path(screenshot_kind::original, screenshot_myset.original_image, screenshot_myset.original_status, "##image_original", "##image_original_enabled", __COMPUTE_CRC16("Original image"));
+                    draw_control_screenshot_path(screenshot_kind::before, screenshot_myset.before_image, screenshot_myset.before_status, "##image_before", "##image_before_enabled", __COMPUTE_CRC16("Before image"));
+                    draw_control_screenshot_path(screenshot_kind::after, screenshot_myset.after_image, screenshot_myset.after_status, "##image_after", "##image_after_enabled", __COMPUTE_CRC16("After image"));
+                    draw_control_screenshot_path(screenshot_kind::overlay, screenshot_myset.overlay_image, screenshot_myset.overlay_status, "##image_overlay", "##image_overlay_enabled", __COMPUTE_CRC16("Overlay image"));
+                    draw_control_screenshot_path(screenshot_kind::depth, screenshot_myset.depth_image, screenshot_myset.depth_status, "##image_depth", "##image_depth_enabled", __COMPUTE_CRC16("Depth image"));
+
+                    ImGui::EndTabItem();
+                }
+
+                tab_open = ImGui::BeginTabItem(_("Free space limit"), nullptr, ImGuiTabItemFlags_None);
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+                {
+                    if (ImGui::BeginTooltip())
+                    {
+                        ImGui::TextUnformatted(_("Set thresholds to block taking screenshots to preserve the free disk space."));
+                        ImGui::EndTooltip();
+                    }
+                }
+                if (tab_open)
                 {
                     auto select_format = [](uint64_t size) -> std::string { return (size == 0 || size == std::numeric_limits<decltype(size)>::max()) ? _("Disabled") : size >= 100 ? "%d MB" : "%d %%"; };
 
@@ -724,7 +705,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         modified = true;
                         screenshot_myset.original_freelimit = static_cast<decltype(screenshot_myset.original_freelimit)>(v);
                     }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::original;
                     if (int v = static_cast<int>(screenshot_myset.before_freelimit);
                         ImGui::DragInt(_("Before image"), &v, 1, 0, 100, select_format(screenshot_myset.before_freelimit).c_str(), ImGuiSliderFlags_None))
@@ -732,7 +713,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         modified = true;
                         screenshot_myset.before_freelimit = static_cast<decltype(screenshot_myset.before_freelimit)>(v);
                     }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::before;
                     if (int v = static_cast<int>(screenshot_myset.after_freelimit);
                         ImGui::DragInt(_("After image"), &v, 1, 0, 100, select_format(screenshot_myset.after_freelimit).c_str(), ImGuiSliderFlags_None))
@@ -740,7 +721,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         modified = true;
                         screenshot_myset.after_freelimit = static_cast<decltype(screenshot_myset.after_freelimit)>(v);
                     }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::after;
                     if (int v = static_cast<int>(screenshot_myset.overlay_freelimit);
                         ImGui::DragInt(_("Overlay image"), &v, 1, 0, 100, select_format(screenshot_myset.overlay_freelimit).c_str(), ImGuiSliderFlags_None))
@@ -748,7 +729,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         modified = true;
                         screenshot_myset.overlay_freelimit = static_cast<decltype(screenshot_myset.overlay_freelimit)>(v);
                     }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::overlay;
                     if (int v = static_cast<int>(screenshot_myset.depth_freelimit);
                         ImGui::DragInt(_("Depth image"), &v, 1, 0, 100, select_format(screenshot_myset.depth_freelimit).c_str(), ImGuiSliderFlags_None))
@@ -756,7 +737,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         modified = true;
                         screenshot_myset.depth_freelimit = static_cast<decltype(screenshot_myset.depth_freelimit)>(v);
                     }
-                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered())
+                    if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::depth;
                     if (screenshot_path_hovered != screenshot_kind::unset)
                     {
@@ -774,14 +755,6 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     }
 
                     ImGui::EndTabItem();
-                }
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
-                {
-                    if (ImGui::BeginTooltip())
-                    {
-                        ImGui::TextUnformatted(_("Set thresholds to block taking screenshots to preserve the free disk space."));
-                        ImGui::EndTooltip();
-                    }
                 }
 
                 ImGui::EndTabBar();

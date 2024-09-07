@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-FileCopyrightText: Copyright (C) 2022 Patrick Mours
  * SPDX-License-Identifier: BSD-3-Clause
@@ -281,9 +281,10 @@ void screenshot_environment::init()
             }
 
             if (file != INVALID_HANDLE_VALUE)
+            {
                 CloseHandle(file);
-
-            if (file == INVALID_HANDLE_VALUE)
+            }
+            else
             {
                 const std::string message = std::format("Failed to create the Add-on specific effect with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), copy_to.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
@@ -423,7 +424,7 @@ void screenshot::save()
         if (ULARGE_INTEGER diskBytes{}, freeBytes{};
             GetDiskFreeSpaceExW(parent_path.c_str(), &freeBytes, &diskBytes, nullptr))
         {
-            const float free_ratio = (double)freeBytes.QuadPart / diskBytes.QuadPart;
+            const float free_ratio = static_cast<float>((double)freeBytes.QuadPart / diskBytes.QuadPart);
             bool limit_exceeded = false;
 
             if (freelimit >= 100) // Limit by absolute value
@@ -527,10 +528,10 @@ void screenshot::save()
             enum class condition { none, open, create, blocked };
             auto condition = condition::none;
 
-            const HANDLE file = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+            const HANDLE meta = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
             ec = std::error_code(GetLastError(), std::system_category());
 
-            if (file == INVALID_HANDLE_VALUE)
+            if (meta == INVALID_HANDLE_VALUE)
                 condition = condition::blocked;
             else if (ec.value() == ERROR_SUCCESS)
                 condition = condition::open;
@@ -541,13 +542,14 @@ void screenshot::save()
                 FILETIME ft{};
                 ft.dwLowDateTime = date_time & 0xFFFFFFFF;
                 ft.dwHighDateTime = date_time >> 32;
-                SetFileTime(file, nullptr, nullptr, &ft);
+                SetFileTime(meta, nullptr, nullptr, &ft);
             }
 
-            if (file != INVALID_HANDLE_VALUE)
-                CloseHandle(file);
-
-            if (file == INVALID_HANDLE_VALUE)
+            if (meta != INVALID_HANDLE_VALUE)
+            {
+                CloseHandle(meta);
+            }
+            else
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
@@ -581,8 +583,10 @@ void screenshot::save()
             if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
                 write_ptr != nullptr)
             {
+#pragma warning(disable:4611)
                 if (setjmp(*png_set_longjmp_fn(write_ptr, longjmp, sizeof(jmp_buf))) == 0)
                 {
+#pragma warning(default:4611)
                     setvbuf(file, nullptr, _IOFBF, myset.file_write_buffer_size);
 
                     png_init_io(write_ptr, file);
@@ -633,10 +637,10 @@ void screenshot::save()
             enum class condition { none, open, create, blocked };
             auto condition = condition::none;
 
-            const HANDLE file = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+            const HANDLE meta = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
             ec = std::error_code(GetLastError(), std::system_category());
 
-            if (file == INVALID_HANDLE_VALUE)
+            if (meta == INVALID_HANDLE_VALUE)
                 condition = condition::blocked;
             else if (ec.value() == ERROR_SUCCESS)
                 condition = condition::open;
@@ -647,13 +651,14 @@ void screenshot::save()
                 FILETIME ft{};
                 ft.dwLowDateTime = date_time & 0xFFFFFFFF;
                 ft.dwHighDateTime = date_time >> 32;
-                SetFileTime(file, nullptr, nullptr, &ft);
+                SetFileTime(meta, nullptr, nullptr, &ft);
             }
 
-            if (file != INVALID_HANDLE_VALUE)
-                CloseHandle(file);
-
-            if (file == INVALID_HANDLE_VALUE)
+            if (meta != INVALID_HANDLE_VALUE)
+            {
+                CloseHandle(meta);
+            }
+            else
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
@@ -694,10 +699,10 @@ void screenshot::save()
             enum class condition { none, open, create, blocked };
             auto condition = condition::none;
 
-            const HANDLE file = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+            const HANDLE meta = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
             ec = std::error_code(GetLastError(), std::system_category());
 
-            if (file == INVALID_HANDLE_VALUE)
+            if (meta == INVALID_HANDLE_VALUE)
                 condition = condition::blocked;
             else if (ec.value() == ERROR_ALREADY_EXISTS)
                 condition = condition::open;
@@ -706,20 +711,21 @@ void screenshot::save()
 
             if (condition == condition::open || condition == condition::create)
             {
-                if (DWORD _; WriteFile(file, encoded_pixels.data(), static_cast<DWORD>(encoded_pixels.size()), &_, NULL) != 0)
-                    SetEndOfFile(file);
+                if (DWORD _; WriteFile(meta, encoded_pixels.data(), static_cast<DWORD>(encoded_pixels.size()), &_, NULL) != 0)
+                    SetEndOfFile(meta);
 
                 const uint64_t date_time = std::chrono::duration_cast<std::chrono::nanoseconds>(frame_time.time_since_epoch()).count() / 100 + 116444736000000000;
                 FILETIME ft{};
                 ft.dwLowDateTime = date_time & 0xFFFFFFFF;
                 ft.dwHighDateTime = date_time >> 32;
-                SetFileTime(file, nullptr, nullptr, &ft);
+                SetFileTime(meta, nullptr, nullptr, &ft);
             }
 
-            if (file != INVALID_HANDLE_VALUE)
-                CloseHandle(file);
-
-            if (file == INVALID_HANDLE_VALUE)
+            if (meta != INVALID_HANDLE_VALUE)
+            {
+                CloseHandle(meta);
+            }
+            else
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());
@@ -807,10 +813,10 @@ void screenshot::save()
             enum class condition { none, open, create, blocked };
             auto condition = condition::none;
 
-            const HANDLE file = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+            const HANDLE meta = CreateFileW(image_file.c_str(), FILE_GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
             ec = std::error_code(GetLastError(), std::system_category());
 
-            if (file == INVALID_HANDLE_VALUE)
+            if (meta == INVALID_HANDLE_VALUE)
                 condition = condition::blocked;
             else if (ec.value() == ERROR_SUCCESS)
                 condition = condition::open;
@@ -821,13 +827,14 @@ void screenshot::save()
                 FILETIME ft{};
                 ft.dwLowDateTime = date_time & 0xFFFFFFFF;
                 ft.dwHighDateTime = date_time >> 32;
-                SetFileTime(file, nullptr, nullptr, &ft);
+                SetFileTime(meta, nullptr, nullptr, &ft);
             }
 
-            if (file != INVALID_HANDLE_VALUE)
-                CloseHandle(file);
-
-            if (file == INVALID_HANDLE_VALUE)
+            if (meta != INVALID_HANDLE_VALUE)
+            {
+                CloseHandle(meta);
+            }
+            else
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
                 reshade::log_message(reshade::log_level::error, message.c_str());

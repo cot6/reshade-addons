@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -28,11 +28,11 @@
 enum screenshot_kind
 {
     unset = 0,
-    original,
-    before,
-    after,
-    overlay,
-    depth,
+    original = 1,
+    before = 2,
+    after = 3,
+    overlay = 4,
+    depth = 5,
 };
 
 constexpr const char *get_screenshot_kind_name(screenshot_kind kind)
@@ -137,25 +137,67 @@ public:
 
     bool is_enable(screenshot_kind kind) const
     {
-        switch (kind)
-        {
-            case screenshot_kind::original:
-                return !(original_image.empty() || original_image.native().front() == L'-');
-            case screenshot_kind::before:
-                return !(before_image.empty() || before_image.native().front() == L'-');
-            case screenshot_kind::after:
-                return !(after_image.empty() || after_image.native().front() == L'-');
-            case screenshot_kind::overlay:
-                return !(overlay_image.empty() || overlay_image.native().front() == L'-');
-            case screenshot_kind::depth:
-                return !(depth_image.empty() || depth_image.native().front() == L'-');
-            default:
-                return false;
-        }
+        if (is_muted(kind))
+            return false;
+
+        const std::filesystem::path *path = get_image_path(kind);
+        return path != nullptr && !path->empty() ? kind : unset;
+    }
+    bool is_muted(screenshot_kind kind) const
+    {
+        const std::filesystem::path *path = get_image_path(kind);
+        return path != nullptr && !path->empty() && path->native().front() == L'-';
+    }
+    void mute(screenshot_kind kind)
+    {
+        if (std::filesystem::path *path = get_image_path(kind); path != nullptr && !path->native().empty() && path->native().front() != L'-')
+            *path = L'-' + path->native();
+    }
+    void unmute(screenshot_kind kind)
+    {
+        if (std::filesystem::path *path = get_image_path(kind); path != nullptr && !path->native().empty() && path->native().front() == L'-')
+            *path = path->native().substr(1);
     }
 
     void load(const ini_file &config);
     void save(ini_file &config) const;
+private:
+    inline const std::filesystem::path *get_image_path(screenshot_kind kind) const
+    {
+        switch (kind)
+        {
+            case screenshot_kind::original:
+                return &original_image;
+            case screenshot_kind::before:
+                return &before_image;
+            case screenshot_kind::after:
+                return &after_image;
+            case screenshot_kind::overlay:
+                return &overlay_image;
+            case screenshot_kind::depth:
+                return &depth_image;
+            default:
+                return nullptr;
+        }
+    }
+    inline std::filesystem::path *get_image_path(screenshot_kind kind)
+    {
+        switch (kind)
+        {
+            case screenshot_kind::original:
+                return &original_image;
+            case screenshot_kind::before:
+                return &before_image;
+            case screenshot_kind::after:
+                return &after_image;
+            case screenshot_kind::overlay:
+                return &overlay_image;
+            case screenshot_kind::depth:
+                return &depth_image;
+            default:
+                return nullptr;
+        }
+    }
 };
 
 class screenshot_config

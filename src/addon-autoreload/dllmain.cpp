@@ -132,7 +132,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                     technique_state &state = it == ctx._reloading_techniques.end() ? ctx._reloading_techniques.emplace_back() : *it;
                     if (state.name.empty())
                         state.name = name;
-                    if (state.enabled = runtime->get_technique_state(technique))
+                    if (state.enabled = runtime->get_technique_state(technique); state.enabled)
                         state.order.clear();
                     if (state.order.empty())
                     {

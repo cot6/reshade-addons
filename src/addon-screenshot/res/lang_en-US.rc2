@@ -1,4 +1,4 @@
-/////////////////////////////////////////////////////////////////////////////
+﻿/////////////////////////////////////////////////////////////////////////////
 // English (United States) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
@@ -39,23 +39,24 @@ BEGIN
 11521 "Play default sound if not exists"
 9359 "Play sound as system notification"
 8134 "Screenshot path"
-1326 "Original image"
+54905 "Set save paths for screenshots."
 64244 "Enter path to capture"
-40274 "Before image"
-36493 "After image"
-46529 "Overlay image"
-35877 "Depth image"
+50817 "Toggle whether to capture the frame."
 53540 "Capture the frame rendered by the game."
 48416 "Capture the frame rendered by the game only if effects are enabled."
 29421 "Capture the frame after applied the effect only if the effects are enabled."
 9403 "Capture the frame after rendered the ReShade overlay."
 26902 "Capture the depth of the frame that was used in the game only if effects are enabled."
 30774 "Macros you can add that are resolved during saving:\n  <APP>               File name of the current executable file (%s)\n  <PRESET>            File name of the current preset file (%s)\n  <TOTALFRAME[:format]>\n                      Total number of screenshots\n                      (default: D1)\n  <MYSETFRAME[:format]>\n                      Total number of screenshots of myset\n                      (default: D1)\n  <TOTALTAKE[:format]>\n                      Total number of activation\n                      (default: D1)\n  <MYSETTAKE[:format]>\n                      Total number of activation of myset\n                      (default: D1)\n  <INDEX[:format]>    Current number of continuous screenshot\n                      (default: D1)\n  <DATE[:format]>     Timestamp of taken screenshot\n                      (default: %%Y-%%m-%%d %%H-%%M-%%S)"
-54905 "Set save paths for screenshots."
 20589 "Free space limit"
-4287 "Disabled"
-14112 "This feature estimates the free disk space in the destination folder before saving screenshots to cancel the save operation.\nNote that this behavior depends on the following ranges.\n0       Disable feature\n1-99    Percentage of free disk space to cancel the save operation.\n100-    Number of free disk space (in megabytes) to cancel the save operation.\n\nIf you want to specify a value above 100 MB, you can switch to direct input mode by 'Ctrl'+left click."
 54708 "Set thresholds to block taking screenshots to preserve the free disk space."
+4287 "Disabled"
+1326 "Original image"
+40274 "Before image"
+36493 "After image"
+46529 "Overlay image"
+35877 "Depth image"
+14112 "This feature estimates the free disk space in the destination folder before saving screenshots to cancel the save operation.\nNote that this behavior depends on the following ranges.\n0       Disable feature\n1-99    Percentage of free disk space to cancel the save operation.\n100-    Number of free disk space (in megabytes) to cancel the save operation.\n\nIf you want to specify a value above 100 MB, you can switch to direct input mode by 'Ctrl'+left click."
 45395 "Repeat count"
 23862 "infinity"
 32438 "%d times"

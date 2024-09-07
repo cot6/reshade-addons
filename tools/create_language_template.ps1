@@ -32,6 +32,16 @@ foreach ($proj in @( `
     $message = ""
 	$is_inside_message = $false
 
+	$lang_rc2 = Get-Item -Path "$($proj.Folder)/res/lang_$locale.rc2"
+	if ($lang_rc2.Exists) {
+		$lang_dic = [System.Collections.Generic.Dictionary[string, string]]::new()
+		foreach ($line in Get-Content $lang_rc2 -Encoding ([System.Text.UTF8Encoding]::new($true))) {
+			if ($line -match '([0-9]+) ([^\r\n]+)') {
+				$lang_dic[$matches[1]] = $matches[2]
+			}
+		}
+	}
+
 	foreach ($line in xgettext.exe --c++ --keyword=_ --omit-header --indent --no-wrap --output=- $($proj.Include | ForEach-Object { $proj.Folder + '/' + $_ }))
     {
 		if ($line.StartsWith("#") -or $line.Length -eq 0) {
@@ -44,6 +54,10 @@ foreach ($proj in @( `
 		if ($line.StartsWith("msgstr")) {
 			$hash = compute_crc16([System.Text.Encoding]::UTF8.GetBytes($message.Trim('"').Replace("\`"", "`"").Replace("\\", "\").Replace("\n", "`n")))
 
+			$translated = $null
+			if ($lang_dic.TryGetValue($hash.ToString(), [ref]$translated)) {
+				$message = $translated;
+			}
 			$message = $message.Replace("\`"", "`"`"")
 			$strings += "$hash $message`r`n"
 
@@ -68,7 +82,7 @@ foreach ($proj in @( `
 	$locale_lang_id = $ci.LCID -band 0x3FF
 	$locale_sublang_id = ($ci.LCID -band 0xFC00) -shr 10
 
-	Out-File -FilePath "$($proj.Folder)/res/lang_$locale.rc2" -Encoding ASCII -InputObject @"
+	Out-File $lang_rc2 -Encoding ([System.Text.UTF8Encoding]::new($true)) -InputObject @"
 /////////////////////////////////////////////////////////////////////////////
 // $locale_name resources
 

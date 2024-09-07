@@ -21,8 +21,8 @@ constexpr uint8_t s_runtime_id[16] = { 0x02, 0x82, 0xFF, 0x77, /**/ 0xEC, 0x5B, 
 struct technique_state
 {
     std::string name;
-    bool enabled;
-    bool used;
+    bool enabled = false;
+    bool used = false;
     std::vector<std::string> order;
 };
 
