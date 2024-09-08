@@ -37,7 +37,10 @@
       <ConformanceMode>true</ConformanceMode>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>RESHADE_LOCALIZATION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>
+        RESHADE_LOCALIZATION;
+        %(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <WarningLevel>Level4</WarningLevel>
     </ClCompile>
@@ -48,6 +51,12 @@
       </AdditionalIncludeDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <ResourceCompile>
+      <PreprocessorDefinitions>
+        RESHADE_LOCALIZATION;
+        %(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='Win32'">
     <ClCompile>
@@ -68,7 +77,6 @@
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>
-        RESHADE_LOCALIZATION;
         _WIN32;
         %(PreprocessorDefinitions)
       </PreprocessorDefinitions>
@@ -93,7 +101,6 @@
     </Link>
     <ResourceCompile>
       <PreprocessorDefinitions>
-        RESHADE_LOCALIZATION;
         _WIN64;
         %(PreprocessorDefinitions)
       </PreprocessorDefinitions>
