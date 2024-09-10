@@ -56,7 +56,7 @@ BEGIN
 36493 "After image"
 46529 "Overlay image"
 35877 "Depth image"
-14112 "This feature estimates the free disk space in the destination folder before saving screenshots to cancel the save operation.\nNote that this behavior depends on the following ranges.\n0       Disable feature\n1-99    Percentage of free disk space to cancel the save operation.\n100-    Number of free disk space (in megabytes) to cancel the save operation.\n\nIf you want to specify a value above 100 MB, you can switch to direct input mode by 'Ctrl'+left click."
+15492 "This feature estimates the free disk space in the destination folder before saving screenshots to cancel the save operation.\nNote that this behavior depends on the following ranges.\n\n0       Disable feature\n1-99    Percentage of free disk space to cancel the save operation.\n100-    Number of free disk space (in megabytes) to cancel the save operation.\n\nIf you want to specify a value above 100 MB, you can switch to direct input mode by 'Ctrl'+left click."
 45395 "Repeat count"
 23862 "infinity"
 32438 "%d times"

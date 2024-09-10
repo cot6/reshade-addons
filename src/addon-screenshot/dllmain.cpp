@@ -744,7 +744,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         if (ImGui::BeginTooltip())
                         {
                             ImGui::TextUnformatted(_("This feature estimates the free disk space in the destination folder before saving screenshots to cancel the save operation.\n"
-                                "Note that this behavior depends on the following ranges.\n"
+                                "Note that this behavior depends on the following ranges.\n\n"
                                 "0       Disable feature\n"
                                 "1-99    Percentage of free disk space to cancel the save operation.\n"
                                 "100-    Number of free disk space (in megabytes) to cancel the save operation.\n\n"
