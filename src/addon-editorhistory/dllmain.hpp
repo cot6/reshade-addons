@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,6 +16,9 @@
 #if !defined(_DEBUG) && ADDON_MAJOR < RESHADE_API_VERSION
 // The major version must be the same as the API revision number.
 #endif
+
+extern "C" __declspec(dllexport) const char *WEBSITE = "https://github.com/cot6/reshade-addons";
+extern "C" __declspec(dllexport) const char *ISSUES = "https://github.com/cot6/reshade-addons/issues";
 
 constexpr size_t HISTORY_LIMIT = 1000;
 
