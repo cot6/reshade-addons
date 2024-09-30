@@ -23,7 +23,7 @@ BEGIN
             VALUE "ProductName", "Screenshot"
             VALUE "ProductVersion", ADDON_STRING_PRODUCT
             VALUE "LegalCopyright", "2018 seri14"
-            VALUE "FileDescription", "Add the enhanced screenshot feature"
+            VALUE "FileDescription", "Adds extended screenshot functionality"
 #if defined _WIN64
             VALUE "OriginalFilename", "ReShade64-Screenshot-By-seri14.addon64"
 #elif defined _WIN32

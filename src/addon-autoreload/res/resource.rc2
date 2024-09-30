@@ -23,7 +23,7 @@ BEGIN
             VALUE "ProductName", "AutoReload"
             VALUE "ProductVersion", ADDON_STRING_PRODUCT
             VALUE "LegalCopyright", "2018 seri14"
-            VALUE "FileDescription", "Monitor modifications of effect files to reload those immediately"
+            VALUE "FileDescription", "Automatically reloads effect files when modified on disk"
 #if defined _WIN64
             VALUE "OriginalFilename", "ReShade64-AutoReload-By-seri14.addon64"
 #elif defined _WIN32

@@ -1,5 +1,7 @@
 *.cpp     text encoding=utf-8-bom eol=crlf
 *.hpp     text encoding=utf-8-bom eol=crlf
 *.ps1     text encoding=utf-8-bom eol=crlf
+*.rc      text encoding=utf-8     eol=lf
+*.rc2     text encoding=utf-8     eol=lf
 *.sln     text encoding=utf-8     eol=crlf
 *.vcxproj text encoding=utf-8     eol=crlf
