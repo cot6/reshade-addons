@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <thread>
@@ -33,6 +34,7 @@ enum screenshot_kind
     after = 3,
     overlay = 4,
     depth = 5,
+    _max,
 };
 
 constexpr const char *get_screenshot_kind_name(screenshot_kind kind)
@@ -91,17 +93,8 @@ public:
     unsigned int repeat_interval = 60;
     unsigned int screenshot_key_data[4]{ 0, 0, 0, 0 };
 
-    std::filesystem::path original_image;
-    std::filesystem::path before_image;
-    std::filesystem::path after_image;
-    std::filesystem::path overlay_image;
-    std::filesystem::path depth_image;
-
-    uint64_t original_freelimit = 0;
-    uint64_t before_freelimit = 0;
-    uint64_t after_freelimit = 0;
-    uint64_t overlay_freelimit = 0;
-    uint64_t depth_freelimit = 0;
+    std::array<std::filesystem::path, screenshot_kind::_max> image_paths;
+    std::array<uint64_t, screenshot_kind::_max> image_freelimits;
 
     unsigned int worker_threads = 0;
 
@@ -139,65 +132,27 @@ public:
     {
         if (is_muted(kind))
             return false;
-
-        const std::filesystem::path *path = get_image_path(kind);
-        return path != nullptr && !path->empty() ? kind : unset;
+        else
+            return image_paths[kind].empty() ? unset : kind;
     }
     bool is_muted(screenshot_kind kind) const
     {
-        const std::filesystem::path *path = get_image_path(kind);
-        return path != nullptr && !path->empty() && path->native().front() == L'-';
+        const std::filesystem::path &path = image_paths[kind];
+        return !path.empty() && path.native().front() == L'-';
     }
     void mute(screenshot_kind kind)
     {
-        if (std::filesystem::path *path = get_image_path(kind); path != nullptr && !path->native().empty() && path->native().front() != L'-')
-            *path = L'-' + path->native();
+        if (std::filesystem::path &path = image_paths[kind]; !path.native().empty() && path.native().front() != L'-')
+            path = L'-' + path.native();
     }
     void unmute(screenshot_kind kind)
     {
-        if (std::filesystem::path *path = get_image_path(kind); path != nullptr && !path->native().empty() && path->native().front() == L'-')
-            *path = path->native().substr(1);
+        if (std::filesystem::path &path = image_paths[kind]; !path.native().empty() && path.native().front() == L'-')
+            path = path.native().substr(1);
     }
 
     void load(const ini_file &config);
     void save(ini_file &config) const;
-private:
-    inline const std::filesystem::path *get_image_path(screenshot_kind kind) const
-    {
-        switch (kind)
-        {
-            case screenshot_kind::original:
-                return &original_image;
-            case screenshot_kind::before:
-                return &before_image;
-            case screenshot_kind::after:
-                return &after_image;
-            case screenshot_kind::overlay:
-                return &overlay_image;
-            case screenshot_kind::depth:
-                return &depth_image;
-            default:
-                return nullptr;
-        }
-    }
-    inline std::filesystem::path *get_image_path(screenshot_kind kind)
-    {
-        switch (kind)
-        {
-            case screenshot_kind::original:
-                return &original_image;
-            case screenshot_kind::before:
-                return &before_image;
-            case screenshot_kind::after:
-                return &after_image;
-            case screenshot_kind::overlay:
-                return &overlay_image;
-            case screenshot_kind::depth:
-                return &depth_image;
-            default:
-                return nullptr;
-        }
-    }
 };
 
 class screenshot_config
@@ -254,54 +209,36 @@ public:
     screenshot_myset myset;
     screenshot_state &state;
 
-    screenshot_kind kind = screenshot_kind::unset;
     std::filesystem::path image_file;
+    std::array<std::filesystem::path, screenshot_kind::_max> image_files;
 
     unsigned int repeat_index = 0;
     unsigned int height = 0, width = 0;
-    std::vector<uint8_t> pixels;
+
+    std::array<std::vector<uint32_t>, screenshot_kind::_max> captures;
     std::chrono::system_clock::time_point frame_time;
 
     std::string message;
 
-    screenshot() = default;
     screenshot(screenshot &&screenshot) = default;
-    screenshot(reshade::api::effect_runtime *runtime,
-               const screenshot_environment &environment,
+    screenshot(const screenshot_environment &environment,
                const screenshot_myset &myset,
-               screenshot_kind kind,
                screenshot_state &state,
                std::chrono::system_clock::time_point frame_time,
                screenshot_statistics statistics) :
         environment(environment),
         myset(myset),
-        kind(kind),
         state(state),
         frame_time(frame_time),
         statistics(statistics)
     {
-        if (runtime)
-            runtime->get_screenshot_width_and_height(&width, &height);
 
-        switch (kind)
-        {
-            case screenshot_kind::original:
-            case screenshot_kind::before:
-            case screenshot_kind::after:
-            case screenshot_kind::overlay:
-                if (runtime)
-                {
-                    pixels.resize(static_cast<size_t>(width) * height * 4);
-                    runtime->capture_screenshot(pixels.data());
-                }
-                break;
-            default:
-            case screenshot_kind::depth:
-                break;
-        }
-    }
+    };
+
+    bool capture(reshade::api::effect_runtime *const runtime, screenshot_kind kind);
 
     void save();
+    void save(screenshot_kind kind);
     std::string expand_macro_string(const std::string &input) const;
 
     [[noreturn]]

@@ -30,6 +30,7 @@ public:
     screenshot_statistics statistics;
 
     uint64_t current_frame = 0;
+    screenshot *screenshot_frame = nullptr;
 
     std::chrono::system_clock::time_point present_time;
     std::chrono::system_clock::time_point capture_time, capture_last;

@@ -107,8 +107,11 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
     ctx.current_frame++;
     ctx.present_time = std::chrono::system_clock::now();
 
-    if (ctx.is_screenshot_frame())
+    if (ctx.screenshot_frame = ctx.is_screenshot_frame() ? &ctx.screenshots.emplace_front(ctx.environment, *ctx.active_screenshot, ctx.screenshot_state, ctx.present_time, ctx.statistics) : nullptr;
+        ctx.screenshot_frame)
     {
+        ctx.screenshot_frame->repeat_index = ctx.screenshot_repeat_index;
+
         ctx.capture_last = ctx.capture_time;
         ctx.capture_time = ctx.present_time;
 
@@ -118,11 +121,8 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
         ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
     }
 
-    if (ctx.is_screenshot_frame(screenshot_kind::original))
-    {
-        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::original, ctx.screenshot_state, ctx.present_time, ctx.statistics);
-        screenshot.repeat_index = ctx.screenshot_repeat_index;
-    }
+    if (ctx.is_screenshot_frame(screenshot_kind::original) && ctx.screenshot_frame)
+        ctx.screenshot_frame->capture(runtime, screenshot_kind::original);
 
     if (reshade::api::effect_technique technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14"); technique.handle != 0)
     {
@@ -144,11 +144,8 @@ static void on_begin_effects(reshade::api::effect_runtime *runtime, reshade::api
     if (std::addressof(ctx) == nullptr)
         return;
 
-    if (ctx.is_screenshot_frame(screenshot_kind::before))
-    {
-        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::before, ctx.screenshot_state, ctx.present_time, ctx.statistics);
-        screenshot.repeat_index = ctx.screenshot_repeat_index;
-    }
+    if (ctx.is_screenshot_frame(screenshot_kind::before) && ctx.screenshot_frame)
+        ctx.screenshot_frame->capture(runtime, screenshot_kind::before);
 }
 static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::api::command_list *, reshade::api::resource_view, reshade::api::resource_view)
 {
@@ -157,87 +154,11 @@ static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::ap
     if (std::addressof(ctx) == nullptr)
         return;
 
-    if (ctx.is_screenshot_frame(screenshot_kind::after))
-    {
-        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::after, ctx.screenshot_state, ctx.present_time, ctx.statistics);
-        screenshot.repeat_index = ctx.screenshot_repeat_index;
-    }
+    if (ctx.is_screenshot_frame(screenshot_kind::after) && ctx.screenshot_frame)
+        ctx.screenshot_frame->capture(runtime, screenshot_kind::after);
 
-    if (ctx.is_screenshot_frame(screenshot_kind::depth) &&
-        runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14").handle != 0)
-    {
-        auto get_texture_data = [runtime, device](reshade::api::resource resource, reshade::api::resource_usage state, std::vector<uint8_t> &texture_data, reshade::api::format &texture_format) -> bool
-            {
-                const reshade::api::resource_desc desc = device->get_resource_desc(resource);
-                texture_format = reshade::api::format_to_default_typed(desc.texture.format, 0);
-
-                if (texture_format != reshade::api::format::r32_float)
-                {
-                    reshade::log_message(reshade::log_level::error, std::format("Screenshots are not supported for format %u !", desc.texture.format).c_str());
-                    return false;
-                }
-
-                // Copy back buffer data into system memory buffer
-                reshade::api::resource intermediate;
-                if (!device->create_resource(reshade::api::resource_desc(desc.texture.width, desc.texture.height, 1, 1, texture_format, 1, reshade::api::memory_heap::gpu_to_cpu, reshade::api::resource_usage::copy_dest), nullptr, reshade::api::resource_usage::copy_dest, &intermediate))
-                {
-                    reshade::log_message(reshade::log_level::error, "Failed to create system memory texture for screenshot capture!");
-                    return false;
-                }
-
-                device->set_resource_name(intermediate, "ReShade screenshot texture");
-
-                reshade::api::command_list *const cmd_list = runtime->get_command_queue()->get_immediate_command_list();
-                cmd_list->barrier(resource, state, reshade::api::resource_usage::copy_source);
-                cmd_list->copy_texture_region(resource, 0, nullptr, intermediate, 0, nullptr);
-                cmd_list->barrier(resource, reshade::api::resource_usage::copy_source, state);
-
-                // Wait for any rendering by the application finish before submitting
-                // It may have submitted that to a different queue, so simply wait for all to idle here
-                runtime->get_command_queue()->wait_idle();
-
-                // Copy data from intermediate image into output buffer
-                reshade::api::subresource_data mapped_data = {};
-                if (device->map_texture_region(intermediate, 0, nullptr, reshade::api::map_access::read_only, &mapped_data))
-                {
-                    const uint8_t *mapped_pixels = static_cast<const uint8_t *>(mapped_data.data);
-                    const uint32_t pixels_row_pitch = 4u * desc.texture.width;
-                    texture_data.resize(4ull * desc.texture.width * desc.texture.height);
-                    uint8_t *pixels = texture_data.data();
-
-                    for (uint32_t y = 0; y < desc.texture.height; ++y, pixels += pixels_row_pitch, mapped_pixels += mapped_data.row_pitch)
-                        std::memcpy(pixels, mapped_pixels, pixels_row_pitch);
-
-                    device->unmap_texture_region(intermediate, 0);
-                }
-
-                device->destroy_resource(intermediate);
-
-                return mapped_data.data != nullptr;
-            };
-
-        if (reshade::api::effect_texture_variable texture = runtime->find_texture_variable("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Texture_ScreenshotDepth_Seri14");
-            texture.handle != 0)
-        {
-            reshade::api::resource_view rsv{}, rsv_srgb{};
-            if (runtime->get_texture_binding(texture, &rsv, &rsv_srgb);
-                rsv.handle != 0)
-            {
-                if (reshade::api::resource resource = device->get_resource_from_view(rsv);
-                    resource.handle != 0)
-                {
-                    std::vector<uint8_t> texture_data;
-                    reshade::api::format texture_format;
-                    if (get_texture_data(resource, reshade::api::resource_usage::shader_resource, texture_data, texture_format))
-                    {
-                        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::depth, ctx.screenshot_state, ctx.present_time, ctx.statistics);
-                        screenshot.repeat_index = ctx.screenshot_repeat_index;
-                        screenshot.pixels = std::move(texture_data);
-                    }
-                }
-            }
-        }
-    }
+    if (ctx.is_screenshot_frame(screenshot_kind::depth) && ctx.screenshot_frame)
+        ctx.screenshot_frame->capture(runtime, screenshot_kind::depth);
 }
 static void on_reshade_present(reshade::api::effect_runtime *runtime)
 {
@@ -246,11 +167,8 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
     if (std::addressof(ctx) == nullptr)
         return;
 
-    if (ctx.is_screenshot_frame(screenshot_kind::overlay))
-    {
-        screenshot &screenshot = ctx.screenshots.emplace_back(runtime, ctx.environment, *ctx.active_screenshot, screenshot_kind::overlay, ctx.screenshot_state, ctx.present_time, ctx.statistics);
-        screenshot.repeat_index = ctx.screenshot_repeat_index;
-    }
+    if (ctx.is_screenshot_frame(screenshot_kind::overlay) && ctx.screenshot_frame)
+        ctx.screenshot_frame->capture(runtime, screenshot_kind::overlay);
 
     if (!ctx.screenshots.empty())
     {
@@ -456,7 +374,8 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
             uint64_t using_bytes = 0;
             std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
                 [&using_bytes](const screenshot &screenshot) {
-                    using_bytes += screenshot.pixels.size();
+                    for (const std::vector<uint32_t> &capture : screenshot.captures)
+                        using_bytes += sizeof(uint32_t) * capture.size();
                 });
             str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
             ImGui::Text("%*s", str.size(), str.c_str());
@@ -482,13 +401,6 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
             !runtime->get_effects_state())
             ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Depth\" capture because effects are disabled."));
     }
-
-    // -------------------------------------
-    // Important Errors
-    // -------------------------------------
-
-    if (runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14").handle == 0)
-        ImGui::TextColored(COLOR_RED, "%s", _("[BUGCHECK] \"Depth\" capture cannot be performed."));
 }
 static void draw_setting_window(reshade::api::effect_runtime *runtime)
 {
@@ -518,10 +430,10 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
         for (screenshot_myset &screenshot_myset : ctx.config.screenshot_mysets)
         {
             const auto validate_image_path = [&ctx, &screenshot_myset](screenshot_kind kind, std::filesystem::path &image, std::string &status) {
-                if (status.clear(); image.empty() || image.native().front() == '-')
+                if (status.clear(); image.empty() || image.native().front() == L'-')
                     return;
 
-                screenshot dummy(nullptr, ctx.environment, screenshot_myset, kind, ctx.screenshot_state, ctx.present_time, ctx.statistics);
+                screenshot dummy(ctx.environment, screenshot_myset, ctx.screenshot_state, ctx.present_time, ctx.statistics);
                 std::filesystem::path expanded = std::filesystem::u8path(dummy.expand_macro_string(image.u8string()));
                 expanded = ctx.environment.reshade_base_path / expanded;
 
@@ -676,11 +588,11 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                             }
                         };
 
-                    draw_control_screenshot_path(screenshot_kind::original, screenshot_myset.original_image, screenshot_myset.original_status, "##image_original", "##image_original_enabled", __COMPUTE_CRC16("Original image"));
-                    draw_control_screenshot_path(screenshot_kind::before, screenshot_myset.before_image, screenshot_myset.before_status, "##image_before", "##image_before_enabled", __COMPUTE_CRC16("Before image"));
-                    draw_control_screenshot_path(screenshot_kind::after, screenshot_myset.after_image, screenshot_myset.after_status, "##image_after", "##image_after_enabled", __COMPUTE_CRC16("After image"));
-                    draw_control_screenshot_path(screenshot_kind::overlay, screenshot_myset.overlay_image, screenshot_myset.overlay_status, "##image_overlay", "##image_overlay_enabled", __COMPUTE_CRC16("Overlay image"));
-                    draw_control_screenshot_path(screenshot_kind::depth, screenshot_myset.depth_image, screenshot_myset.depth_status, "##image_depth", "##image_depth_enabled", __COMPUTE_CRC16("Depth image"));
+                    draw_control_screenshot_path(screenshot_kind::original, screenshot_myset.image_paths[screenshot_kind::original], screenshot_myset.original_status, "##image_original", "##image_original_enabled", __COMPUTE_CRC16("Original image"));
+                    draw_control_screenshot_path(screenshot_kind::before, screenshot_myset.image_paths[screenshot_kind::before], screenshot_myset.before_status, "##image_before", "##image_before_enabled", __COMPUTE_CRC16("Before image"));
+                    draw_control_screenshot_path(screenshot_kind::after, screenshot_myset.image_paths[screenshot_kind::after], screenshot_myset.after_status, "##image_after", "##image_after_enabled", __COMPUTE_CRC16("After image"));
+                    draw_control_screenshot_path(screenshot_kind::overlay, screenshot_myset.image_paths[screenshot_kind::overlay], screenshot_myset.overlay_status, "##image_overlay", "##image_overlay_enabled", __COMPUTE_CRC16("Overlay image"));
+                    draw_control_screenshot_path(screenshot_kind::depth, screenshot_myset.image_paths[screenshot_kind::depth], screenshot_myset.depth_status, "##image_depth", "##image_depth_enabled", __COMPUTE_CRC16("Depth image"));
 
                     ImGui::EndTabItem();
                 }
@@ -699,43 +611,43 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     auto select_format = [](uint64_t size) -> std::string { return (size == 0 || size == std::numeric_limits<decltype(size)>::max()) ? _("Disabled") : size >= 100 ? "%d MB" : "%d %%"; };
 
                     screenshot_kind screenshot_path_hovered = screenshot_kind::unset;
-                    if (int v = static_cast<int>(screenshot_myset.original_freelimit);
-                        ImGui::DragInt(_("Original image"), &v, 1, 0, 100, select_format(screenshot_myset.original_freelimit).c_str(), ImGuiSliderFlags_None))
+                    if (int v = static_cast<int>(screenshot_myset.image_freelimits[screenshot_kind::original]);
+                        ImGui::DragInt(_("Original image"), &v, 1, 0, 100, select_format(screenshot_myset.image_freelimits[screenshot_kind::original]).c_str(), ImGuiSliderFlags_None))
                     {
                         modified = true;
-                        screenshot_myset.original_freelimit = static_cast<decltype(screenshot_myset.original_freelimit)>(v);
+                        screenshot_myset.image_freelimits[screenshot_kind::original] = static_cast<uint64_t>(v);
                     }
                     if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::original;
-                    if (int v = static_cast<int>(screenshot_myset.before_freelimit);
-                        ImGui::DragInt(_("Before image"), &v, 1, 0, 100, select_format(screenshot_myset.before_freelimit).c_str(), ImGuiSliderFlags_None))
+                    if (int v = static_cast<int>(screenshot_myset.image_freelimits[screenshot_kind::before]);
+                        ImGui::DragInt(_("Before image"), &v, 1, 0, 100, select_format(screenshot_myset.image_freelimits[screenshot_kind::before]).c_str(), ImGuiSliderFlags_None))
                     {
                         modified = true;
-                        screenshot_myset.before_freelimit = static_cast<decltype(screenshot_myset.before_freelimit)>(v);
+                        screenshot_myset.image_freelimits[screenshot_kind::before] = static_cast<uint64_t>(v);
                     }
                     if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::before;
-                    if (int v = static_cast<int>(screenshot_myset.after_freelimit);
-                        ImGui::DragInt(_("After image"), &v, 1, 0, 100, select_format(screenshot_myset.after_freelimit).c_str(), ImGuiSliderFlags_None))
+                    if (int v = static_cast<int>(screenshot_myset.image_freelimits[screenshot_kind::after]);
+                        ImGui::DragInt(_("After image"), &v, 1, 0, 100, select_format(screenshot_myset.image_freelimits[screenshot_kind::after]).c_str(), ImGuiSliderFlags_None))
                     {
                         modified = true;
-                        screenshot_myset.after_freelimit = static_cast<decltype(screenshot_myset.after_freelimit)>(v);
+                        screenshot_myset.image_freelimits[screenshot_kind::after] = static_cast<uint64_t>(v);
                     }
                     if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::after;
-                    if (int v = static_cast<int>(screenshot_myset.overlay_freelimit);
-                        ImGui::DragInt(_("Overlay image"), &v, 1, 0, 100, select_format(screenshot_myset.overlay_freelimit).c_str(), ImGuiSliderFlags_None))
+                    if (int v = static_cast<int>(screenshot_myset.image_freelimits[screenshot_kind::overlay]);
+                        ImGui::DragInt(_("Overlay image"), &v, 1, 0, 100, select_format(screenshot_myset.image_freelimits[screenshot_kind::overlay]).c_str(), ImGuiSliderFlags_None))
                     {
                         modified = true;
-                        screenshot_myset.overlay_freelimit = static_cast<decltype(screenshot_myset.overlay_freelimit)>(v);
+                        screenshot_myset.image_freelimits[screenshot_kind::overlay] = static_cast<uint64_t>(v);
                     }
                     if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::overlay;
-                    if (int v = static_cast<int>(screenshot_myset.depth_freelimit);
-                        ImGui::DragInt(_("Depth image"), &v, 1, 0, 100, select_format(screenshot_myset.depth_freelimit).c_str(), ImGuiSliderFlags_None))
+                    if (int v = static_cast<int>(screenshot_myset.image_freelimits[screenshot_kind::depth]);
+                        ImGui::DragInt(_("Depth image"), &v, 1, 0, 100, select_format(screenshot_myset.image_freelimits[screenshot_kind::depth]).c_str(), ImGuiSliderFlags_None))
                     {
                         modified = true;
-                        screenshot_myset.depth_freelimit = static_cast<decltype(screenshot_myset.depth_freelimit)>(v);
+                        screenshot_myset.image_freelimits[screenshot_kind::depth] = static_cast<uint64_t>(v);
                     }
                     if (screenshot_path_hovered == screenshot_kind::unset && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
                         screenshot_path_hovered = screenshot_kind::depth;
@@ -939,7 +851,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
     if (modified)
         ctx.save();
 }
-
+#include <filesystem>
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)
