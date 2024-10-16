@@ -70,30 +70,30 @@ void screenshot_myset::load(const ini_file &config)
 {
     std::string section = ':' + name;
 
-    if (!config.get(section, "AfterImage", after_image))
-        after_image.clear();
-    if (!config.get(section, "AfterImageDiskFreeLimit", after_freelimit))
-        after_freelimit = 0;
-    if (!config.get(section, "BeforeImage", before_image))
-        before_image.clear();
-    if (!config.get(section, "BeforeImageDiskFreeLimit", before_freelimit))
-        before_freelimit = 0;
+    if (!config.get(section, "AfterImage", image_paths[screenshot_kind::after]))
+        image_paths[screenshot_kind::after].clear();
+    if (!config.get(section, "AfterImageDiskFreeLimit", image_freelimits[screenshot_kind::after]))
+        image_freelimits[screenshot_kind::after] = 0;
+    if (!config.get(section, "BeforeImage", image_paths[screenshot_kind::before]))
+        image_paths[screenshot_kind::before].clear();
+    if (!config.get(section, "BeforeImageDiskFreeLimit", image_freelimits[screenshot_kind::before]))
+        image_freelimits[screenshot_kind::before] = 0;
     if (!config.get(section, "ImageFormat", image_format))
         image_format = 0;
     if (!config.get(section, "KeyScreenshot", screenshot_key_data))
         std::memset(screenshot_key_data, 0, sizeof(screenshot_key_data));
-    if (!config.get(section, "OriginalImage", original_image))
-        original_image.clear();
-    if (!config.get(section, "OriginalImageDiskFreeLimit", original_freelimit))
-        original_freelimit = 0;
-    if (!config.get(section, "OverlayImage", overlay_image))
-        overlay_image.clear();
-    if (!config.get(section, "OverlayImageDiskFreeLimit", overlay_freelimit))
-        overlay_freelimit = 0;
-    if (!config.get(section, "DepthImage", depth_image))
-        depth_image.clear();
-    if (!config.get(section, "DepthImageDiskFreeLimit", depth_freelimit))
-        depth_freelimit = 0;
+    if (!config.get(section, "OriginalImage", image_paths[screenshot_kind::original]))
+        image_paths[screenshot_kind::original].clear();
+    if (!config.get(section, "OriginalImageDiskFreeLimit", image_freelimits[screenshot_kind::original]))
+        image_freelimits[screenshot_kind::original] = 0;
+    if (!config.get(section, "OverlayImage", image_paths[screenshot_kind::overlay]))
+        image_paths[screenshot_kind::overlay].clear();
+    if (!config.get(section, "OverlayImageDiskFreeLimit", image_freelimits[screenshot_kind::overlay]))
+        image_freelimits[screenshot_kind::overlay] = 0;
+    if (!config.get(section, "DepthImage", image_paths[screenshot_kind::depth]))
+        image_paths[screenshot_kind::depth].clear();
+    if (!config.get(section, "DepthImageDiskFreeLimit", image_freelimits[screenshot_kind::depth]))
+        image_freelimits[screenshot_kind::depth] = 0;
     if (!config.get(section, "RepeatCount", repeat_count))
         repeat_count = 1;
     if (!config.get(section, "RepeatInterval", repeat_interval))
@@ -121,18 +121,18 @@ void screenshot_myset::save(ini_file &config) const
 {
     std::string section = ':' + name;
 
-    config.set(section, "AfterImage", after_image);
-    config.set(section, "AfterImageDiskFreeLimit", after_freelimit);
-    config.set(section, "BeforeImage", before_image);
-    config.set(section, "BeforeImageDiskFreeLimit", before_freelimit);
+    config.set(section, "AfterImage", image_paths[screenshot_kind::after]);
+    config.set(section, "AfterImageDiskFreeLimit", image_freelimits[screenshot_kind::after]);
+    config.set(section, "BeforeImage", image_paths[screenshot_kind::before]);
+    config.set(section, "BeforeImageDiskFreeLimit", image_freelimits[screenshot_kind::before]);
     config.set(section, "ImageFormat", image_format);
     config.set(section, "KeyScreenshot", screenshot_key_data);
-    config.set(section, "OriginalImage", original_image);
-    config.set(section, "OriginalImageDiskFreeLimit", original_freelimit);
-    config.set(section, "OverlayImage", overlay_image);
-    config.set(section, "OverlayImageDiskFreeLimit", overlay_freelimit);
-    config.set(section, "DepthImage", depth_image);
-    config.set(section, "DepthImageDiskFreeLimit", depth_freelimit);
+    config.set(section, "OriginalImage", image_paths[screenshot_kind::original]);
+    config.set(section, "OriginalImageDiskFreeLimit", image_freelimits[screenshot_kind::original]);
+    config.set(section, "OverlayImage", image_paths[screenshot_kind::overlay]);
+    config.set(section, "OverlayImageDiskFreeLimit", image_freelimits[screenshot_kind::overlay]);
+    config.set(section, "DepthImage", image_paths[screenshot_kind::depth]);
+    config.set(section, "DepthImageDiskFreeLimit", image_freelimits[screenshot_kind::depth]);
     config.set(section, "RepeatCount", repeat_count);
     config.set(section, "RepeatInterval", repeat_interval);
     config.set(section, "WorkerThreads", worker_threads);
@@ -352,46 +352,117 @@ void screenshot_environment::init()
     }
 }
 
+bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot_kind kind)
+{
+    if (runtime == nullptr)
+        return false;
+
+    runtime->get_screenshot_width_and_height(&width, &height);
+    std::vector<uint32_t> &capture = captures[kind];
+    capture.resize(static_cast<size_t>(width) * height);
+
+    switch (kind)
+    {
+        case screenshot_kind::original:
+        case screenshot_kind::before:
+        case screenshot_kind::after:
+        case screenshot_kind::overlay:
+            return runtime->capture_screenshot(capture.data());
+        default:
+        case screenshot_kind::depth:
+            if (runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14").handle != 0)
+            {
+                reshade::api::device *const device = runtime->get_device();
+
+                if (device == nullptr)
+                    return false;
+
+                auto get_texture_data = [runtime, device](reshade::api::resource resource, reshade::api::resource_usage state, std::vector<uint32_t> &texture_data, reshade::api::format &texture_format) -> bool
+                    {
+                        const reshade::api::resource_desc desc = device->get_resource_desc(resource);
+                        texture_format = reshade::api::format_to_default_typed(desc.texture.format, 0);
+
+                        if (texture_format != reshade::api::format::r32_float)
+                        {
+                            reshade::log_message(reshade::log_level::error, std::format("Screenshots are not supported for format %u !", desc.texture.format).c_str());
+                            return false;
+                        }
+
+                        // Copy back buffer data into system memory buffer
+                        reshade::api::resource intermediate;
+                        if (!device->create_resource(reshade::api::resource_desc(desc.texture.width, desc.texture.height, 1, 1, texture_format, 1, reshade::api::memory_heap::gpu_to_cpu, reshade::api::resource_usage::copy_dest), nullptr, reshade::api::resource_usage::copy_dest, &intermediate))
+                        {
+                            reshade::log_message(reshade::log_level::error, "Failed to create system memory texture for screenshot capture!");
+                            return false;
+                        }
+
+                        device->set_resource_name(intermediate, "ReShade screenshot texture");
+
+                        reshade::api::command_list *const cmd_list = runtime->get_command_queue()->get_immediate_command_list();
+                        cmd_list->barrier(resource, state, reshade::api::resource_usage::copy_source);
+                        cmd_list->copy_texture_region(resource, 0, nullptr, intermediate, 0, nullptr);
+                        cmd_list->barrier(resource, reshade::api::resource_usage::copy_source, state);
+
+                        // Wait for any rendering by the application finish before submitting
+                        // It may have submitted that to a different queue, so simply wait for all to idle here
+                        runtime->get_command_queue()->wait_idle();
+
+                        // Copy data from intermediate image into output buffer
+                        reshade::api::subresource_data mapped_data = {};
+                        if (device->map_texture_region(intermediate, 0, nullptr, reshade::api::map_access::read_only, &mapped_data))
+                        {
+                            const uint8_t *mapped_pixels = static_cast<const uint8_t *>(mapped_data.data);
+                            const uint32_t pixels_row_pitch = 4u * desc.texture.width;
+                            texture_data.resize(desc.texture.width * desc.texture.height);
+                            uint8_t *pixels = reinterpret_cast<uint8_t *>(texture_data.data());
+
+                            for (uint32_t y = 0; y < desc.texture.height; ++y, pixels += pixels_row_pitch, mapped_pixels += mapped_data.row_pitch)
+                                std::memcpy(pixels, mapped_pixels, pixels_row_pitch);
+
+                            device->unmap_texture_region(intermediate, 0);
+                        }
+
+                        device->destroy_resource(intermediate);
+
+                        return mapped_data.data != nullptr;
+                    };
+
+                if (reshade::api::effect_texture_variable texture = runtime->find_texture_variable("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Texture_ScreenshotDepth_Seri14"); texture.handle != 0)
+                {
+                    reshade::api::resource_view rsv{}, rsv_srgb{};
+                    if (runtime->get_texture_binding(texture, &rsv, &rsv_srgb); rsv.handle != 0)
+                    {
+                        if (reshade::api::resource resource = device->get_resource_from_view(rsv); resource.handle != 0)
+                        {
+                            reshade::api::format texture_format;
+                            return get_texture_data(resource, reshade::api::resource_usage::shader_resource, capture, texture_format);
+                        }
+                    }
+                }
+            }
+            break;
+    }
+
+    return false;
+}
+
 void screenshot::save()
+{
+    for (size_t i = 0; i < captures.size(); i++)
+    {
+        if (std::vector<uint32_t> &capture = captures[i]; !capture.empty())
+            save(static_cast<screenshot_kind>(i));
+    }
+}
+void screenshot::save(screenshot_kind kind)
 {
     const auto begin = std::chrono::system_clock::now();
 
     std::error_code ec{};
     enum { ok, open_error, write_error } result = ok;
 
-    image_file.clear();
-    uint64_t freelimit = 0;
-
-    switch (kind)
-    {
-        case screenshot_kind::after:
-            image_file = myset.after_image;
-            freelimit = myset.after_freelimit;
-            break;
-        case screenshot_kind::before:
-            image_file = myset.before_image;
-            freelimit = myset.before_freelimit;
-            break;
-        case screenshot_kind::original:
-            image_file = myset.original_image;
-            freelimit = myset.original_freelimit;
-            break;
-        case screenshot_kind::overlay:
-            image_file = myset.overlay_image;
-            freelimit = myset.overlay_freelimit;
-            break;
-        case screenshot_kind::depth:
-            image_file = myset.depth_image;
-            freelimit = myset.depth_freelimit;
-            break;
-        default:
-            message = std::format("Unknown screenshot kind: %d", kind);
-            reshade::log_message(reshade::log_level::debug, message.c_str());
-            result = open_error;
-
-            state.error_occurs++;
-            return;
-    }
+    image_file = myset.image_paths[kind];
+    uint64_t freelimit = myset.image_freelimits[kind];
 
     image_file = std::filesystem::u8path(expand_macro_string(image_file.u8string()));
     image_file = std::filesystem::weakly_canonical(environment.reshade_base_path / image_file, ec);
@@ -472,7 +543,7 @@ void screenshot::save()
         if (TIFF *tif = TIFFOpenW(image_file.c_str(), "wl");
             tif != nullptr)
         {
-            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), pixels.size()));
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), sizeof(uint32_t) * captures[screenshot_kind::depth].size()));
 
             // 256 - 259
             TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
@@ -519,7 +590,7 @@ void screenshot::save()
             TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_IEEEFP);
 
             const size_t row_strip_length = static_cast<size_t>(4) * width;
-            uint8_t *buf = pixels.data();
+            uint8_t *buf = reinterpret_cast<uint8_t *>(captures[kind].data());
             for (uint32_t row = 0; row < height; ++row, buf += row_strip_length)
                 TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));
 
@@ -569,7 +640,7 @@ void screenshot::save()
             const unsigned int channels = myset.image_format == 0 ? 3 : 4;
             const unsigned int size = width * height;
 
-            uint8_t *const pixel = pixels.data();
+            uint8_t *pixel = reinterpret_cast<uint8_t *>(captures[kind].data());
             if (channels == 3)
             {
                 for (size_t i = 0; i < size; i++)
@@ -580,7 +651,7 @@ void screenshot::save()
             png_structp write_ptr = nullptr;
             png_infop info_ptr = nullptr;
 
-            if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+            if (write_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, this, user_error_fn, user_warning_fn);
                 write_ptr != nullptr)
             {
 #pragma warning(disable:4611)
@@ -590,8 +661,6 @@ void screenshot::save()
                     setvbuf(file, nullptr, _IOFBF, myset.file_write_buffer_size);
 
                     png_init_io(write_ptr, file);
-                    png_set_error_fn(write_ptr, this, user_error_fn, user_warning_fn);
-
                     png_set_filter(write_ptr, PNG_FILTER_TYPE_BASE, myset.libpng_png_filters);
 
                     png_set_compression_mem_level(write_ptr, MAX_MEM_LEVEL);
@@ -685,7 +754,7 @@ void screenshot::save()
         const unsigned int channels = myset.image_format == 2 ? 3 : 4;
         const unsigned int size = width * height;
 
-        uint8_t *const pixel = pixels.data();
+        uint8_t *const pixel = reinterpret_cast<uint8_t *>(captures[kind].data());
         if (channels == 3)
         {
             for (size_t i = 0; i < size; i++)
@@ -694,7 +763,7 @@ void screenshot::save()
         }
 
         if (std::vector<uint8_t> encoded_pixels;
-            fpng::fpng_encode_image_to_memory(pixels.data(), width, height, channels, encoded_pixels))
+            fpng::fpng_encode_image_to_memory(pixel, width, height, channels, encoded_pixels))
         {
             enum class condition { none, open, create, blocked };
             auto condition = condition::none;
@@ -742,7 +811,7 @@ void screenshot::save()
         const unsigned int channels = myset.image_format == 4 ? 3 : 4;
         const unsigned int size = width * height;
 
-        uint8_t *const pixel = pixels.data();
+        uint8_t *const pixel = reinterpret_cast<uint8_t *>(captures[kind].data());
         if (channels == 3)
         {
             for (size_t i = 0; i < size; i++)
@@ -753,7 +822,7 @@ void screenshot::save()
         if (TIFF *tif = TIFFOpenW(image_file.c_str(), "wl");
             tif != nullptr)
         {
-            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), pixels.size()));
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), sizeof(uint32_t) * captures[kind].size()));
 
             // 256 - 259
             TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
@@ -804,7 +873,7 @@ void screenshot::save()
             TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_UINT);
 
             const unsigned int row_strip_length = channels * width;
-            uint8_t *buf = pixels.data();
+            uint8_t *buf = reinterpret_cast<uint8_t *>(captures[kind].data());
             for (uint32_t row = 0; row < height; ++row, buf += row_strip_length)
                 TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));
 
@@ -1016,8 +1085,7 @@ std::string screenshot::expand_macro_string(const std::string &input) const
 
 void screenshot::user_error_fn(png_structp png_ptr, png_const_charp error_msg)
 {
-    if (screenshot *context = reinterpret_cast<screenshot *>(png_get_error_ptr(png_ptr));
-        context != nullptr)
+    if (screenshot *const context = reinterpret_cast<screenshot *>(png_get_error_ptr(png_ptr)); context != nullptr)
     {
         if (const int ec = errno; ec)
         {
@@ -1037,8 +1105,7 @@ void screenshot::user_error_fn(png_structp png_ptr, png_const_charp error_msg)
 }
 void screenshot::user_warning_fn(png_structp png_ptr, png_const_charp warning_msg)
 {
-    if (screenshot *context = reinterpret_cast<screenshot *>(png_get_error_ptr(png_ptr));
-        context != nullptr)
+    if (screenshot *const context = reinterpret_cast<screenshot *>(png_get_error_ptr(png_ptr)); context != nullptr)
     {
         if (const int ec = errno; ec)
         {
