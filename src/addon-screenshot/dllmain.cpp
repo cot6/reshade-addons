@@ -851,7 +851,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
     if (modified)
         ctx.save();
 }
-#include <filesystem>
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 {
     if (fdwReason == DLL_PROCESS_ATTACH)
