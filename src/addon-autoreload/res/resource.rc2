@@ -20,7 +20,7 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "seri14"
             VALUE "FileVersion", ADDON_STRING_FILE
-            VALUE "ProductName", "AutoReload"
+            VALUE "ProductName", "Auto Reload"
             VALUE "ProductVersion", ADDON_STRING_PRODUCT
             VALUE "LegalCopyright", "2018 seri14"
             VALUE "FileDescription", "Automatically reloads effect files when modified on disk"

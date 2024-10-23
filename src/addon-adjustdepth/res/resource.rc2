@@ -23,7 +23,7 @@ BEGIN
             VALUE "ProductName", "Adjust Depth"
             VALUE "ProductVersion", ADDON_STRING_PRODUCT
             VALUE "LegalCopyright", "2018 seri14"
-            VALUE "FileDescription", "Adds a button to DisplayDepth.fx to adjust the depth settings."
+            VALUE "FileDescription", "Adds a button to DisplayDepth.fx to adjust the depth settings"
 #if defined _WIN64
             VALUE "OriginalFilename", "ReShade64-AdjustDepth-By-seri14.addon64"
 #elif defined _WIN32
