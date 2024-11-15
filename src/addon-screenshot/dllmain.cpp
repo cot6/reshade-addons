@@ -95,10 +95,10 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
 {
     ini_file::flush_cache();
 
-    uint64_t effect_runtime; swapchain->get_private_data(s_runtime_id, &effect_runtime);
-    if (effect_runtime == 0)
+    reshade::api::effect_runtime *runtime = nullptr;
+    swapchain->get_private_data(s_runtime_id, reinterpret_cast<uint64_t *>(&runtime));
+    if (runtime == nullptr)
         return;
-    reshade::api::effect_runtime *runtime = reinterpret_cast<reshade::api::effect_runtime *>(effect_runtime);
     reshade::api::device *device = runtime->get_device();
     screenshot_context &ctx = device->get_private_data<screenshot_context>();
     if (std::addressof(ctx) == nullptr)

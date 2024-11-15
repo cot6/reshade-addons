@@ -1,12 +1,55 @@
-// SPDX-FileCopyrightText: 2018 seri14
+﻿// SPDX-FileCopyrightText: 2018 seri14
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "dllmain.hpp"
 #include "std_string_ext.hpp"
 
-#include <reshade.hpp>
-
 #include <string>
+#include <vector>
+
+static void on_init_effect_runtime(reshade::api::effect_runtime *runtime)
+{
+    runtime->create_private_data<uibind_context>();
+}
+static void on_destroy_effect_runtime(reshade::api::effect_runtime *runtime)
+{
+    runtime->destroy_private_data<uibind_context>();
+}
+
+static void on_present(reshade::api::command_queue *, reshade::api::swapchain *swapchain, const reshade::api::rect *, const reshade::api::rect *, uint32_t, const reshade::api::rect *)
+{
+    reshade::api::effect_runtime *runtime = nullptr;
+    swapchain->get_private_data(s_runtime_id, reinterpret_cast<uint64_t *>(&runtime));
+    if (runtime == nullptr)
+        return;
+    uibind_context &context = runtime->get_private_data<uibind_context>();
+    if (std::addressof(context) == nullptr)
+        return;
+
+    if (!context.has_reshade_gui && !context.applying_preprocessor_definitions.empty())
+    {
+        for (const auto &tuple : context.applying_preprocessor_definitions)
+            runtime->set_preprocessor_definition_for_effect(std::get<1>(tuple).c_str(), std::get<2>(tuple).c_str(), std::get<3>(tuple).c_str());
+
+        context.applying_preprocessor_definitions.clear();
+    }
+}
+static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
+{
+    uibind_context &context = runtime->get_private_data<uibind_context>();
+    if (std::addressof(context) == nullptr)
+        return;
+    else if (!context.has_reshade_gui)
+        context.has_reshade_gui = true;
+
+    if (!context.applying_preprocessor_definitions.empty() && !ImGui::IsAnyItemActive())
+    {
+        for (const auto &tuple : context.applying_preprocessor_definitions)
+            runtime->set_preprocessor_definition_for_effect(std::get<1>(tuple).c_str(), std::get<2>(tuple).c_str(), std::get<3>(tuple).c_str());
+
+        context.applying_preprocessor_definitions.clear();
+    }
+}
 
 static bool on_reshade_set_uniform_value(reshade::api::effect_runtime *runtime, reshade::api::effect_uniform_variable variable, const void *value, size_t size)
 {
@@ -114,8 +157,15 @@ static bool on_reshade_set_uniform_value(reshade::api::effect_runtime *runtime, 
 
     if (!exists || next.empty() || next != prev)
     {
-        const char *definition = next.empty() ? nullptr : next.c_str();
-        runtime->set_preprocessor_definition_for_effect(effect_name.c_str(), ui_bind.c_str(), definition);
+        if (uibind_context &context = runtime->get_private_data<uibind_context>(); std::addressof(context) != nullptr)
+        {
+            auto it = std::find_if(context.applying_preprocessor_definitions.begin(), context.applying_preprocessor_definitions.end(),
+                [&](const auto &tuple) { return variable.handle == std::get<0>(tuple).handle; });
+            if (it == context.applying_preprocessor_definitions.end())
+                context.applying_preprocessor_definitions.emplace_back(variable, effect_name, ui_bind, next);
+            else
+                std::get<3>(*it) = next;
+        }
     }
 
     return false;
@@ -128,7 +178,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         case DLL_PROCESS_ATTACH:
             if (!reshade::register_addon(hModule))
                 return FALSE;
+            reshade::register_event<reshade::addon_event::init_effect_runtime>(on_init_effect_runtime);
+            reshade::register_event<reshade::addon_event::destroy_effect_runtime>(on_destroy_effect_runtime);
+            reshade::register_event<reshade::addon_event::present>(on_present);
             reshade::register_event<reshade::addon_event::reshade_set_uniform_value>(on_reshade_set_uniform_value);
+            reshade::register_event<reshade::addon_event::reshade_overlay>(on_reshade_overlay);
             break;
         case DLL_PROCESS_DETACH:
             reshade::unregister_addon(hModule);

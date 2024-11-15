@@ -32,14 +32,13 @@ static void on_destroy_effect_runtime(reshade::api::effect_runtime *runtime)
 
     runtime->destroy_private_data<autoreload_context>();
 }
-static void on_present(reshade::api::command_queue *, reshade::api::swapchain *swapchain, const reshade::api::rect *, const reshade::api::rect *, uint32_t , const reshade::api::rect *)
+static void on_present(reshade::api::command_queue *, reshade::api::swapchain *swapchain, const reshade::api::rect *, const reshade::api::rect *, uint32_t, const reshade::api::rect *)
 {
-    uint64_t effect_runtime; swapchain->get_private_data(s_runtime_id, &effect_runtime);
-    if (effect_runtime == 0)
+    reshade::api::effect_runtime *runtime = nullptr;
+    swapchain->get_private_data(s_runtime_id, reinterpret_cast<uint64_t *>(&runtime));
+    if (runtime == nullptr)
         return;
-    reshade::api::effect_runtime *runtime = reinterpret_cast<reshade::api::effect_runtime *>(effect_runtime);
     autoreload_context &ctx = runtime->get_private_data<autoreload_context>();
-
     if (std::addressof(ctx) == nullptr)
         return;
 
