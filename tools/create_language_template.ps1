@@ -32,7 +32,7 @@ foreach ($proj in @( `
     $message = ""
 	$is_inside_message = $false
 
-	$lang_rc2 = Get-Item -Path "$($proj.Folder)/res/lang_$locale.rc2"
+	$lang_rc2 = [System.IO.FileInfo]::new("$($proj.Folder)/res/lang_$locale.rc2")
 	if ($lang_rc2.Exists) {
 		$lang_dic = [System.Collections.Generic.Dictionary[string, string]]::new()
 		foreach ($line in Get-Content $lang_rc2 -Encoding ([System.Text.UTF8Encoding]::new($true))) {

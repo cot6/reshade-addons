@@ -234,7 +234,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
     if (!ctx.ignore_shortcuts)
     {
-        static auto is_key_down = [runtime](unsigned int keycode) -> bool
+        auto is_key_down = [runtime](unsigned int keycode) -> bool
             {
                 return !keycode || runtime->is_key_down(keycode);
             };
