@@ -455,7 +455,7 @@ void screenshot::save_preset(reshade::api::effect_runtime *runtime)
         return;
 
     std::error_code ec;
-    std::filesystem::path preset_file = expand_macro_string(myset.image_paths[preset].u8string());
+    preset_file = expand_macro_string(myset.image_paths[preset].u8string());
     preset_file.replace_extension() += L".ini";
     preset_file = std::filesystem::weakly_canonical(environment.reshade_base_path / preset_file, ec);
 
