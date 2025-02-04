@@ -94,6 +94,8 @@ void screenshot_myset::load(const ini_file &config)
         image_paths[screenshot_kind::depth].clear();
     if (!config.get(section, "DepthImageDiskFreeLimit", image_freelimits[screenshot_kind::depth]))
         image_freelimits[screenshot_kind::depth] = 0;
+    if (!config.get(section, "PresetSave", image_paths[screenshot_kind::preset]))
+        image_paths[screenshot_kind::preset].clear();
     if (!config.get(section, "RepeatCount", repeat_count))
         repeat_count = 1;
     if (!config.get(section, "RepeatInterval", repeat_interval))
@@ -133,6 +135,7 @@ void screenshot_myset::save(ini_file &config) const
     config.set(section, "OverlayImageDiskFreeLimit", image_freelimits[screenshot_kind::overlay]);
     config.set(section, "DepthImage", image_paths[screenshot_kind::depth]);
     config.set(section, "DepthImageDiskFreeLimit", image_freelimits[screenshot_kind::depth]);
+    config.set(section, "PresetSave", image_paths[screenshot_kind::preset]);
     config.set(section, "RepeatCount", repeat_count);
     config.set(section, "RepeatInterval", repeat_interval);
     config.set(section, "WorkerThreads", worker_threads);
@@ -196,7 +199,7 @@ void screenshot_environment::load(reshade::api::effect_runtime *runtime)
     if (std::filesystem::create_directories(addon_private_path, ec); ec)
     {
         const std::string message = std::format("Failed to create the private path of Add-on with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), addon_private_path.u8string().c_str());
-        reshade::log_message(reshade::log_level::error, message.c_str());
+        reshade::log::message(reshade::log::level::error, message.c_str());
     }
 
     // Effect Search Paths
@@ -254,7 +257,7 @@ void screenshot_environment::init()
             if (std::filesystem::copy_file(copy_from, copy_to, std::filesystem::copy_options::overwrite_existing, ec); ec)
             {
                 const std::string message = std::format("Failed to create the Add-on specific effect with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), copy_to.u8string().c_str());
-                reshade::log_message(reshade::log_level::error, message.c_str());
+                reshade::log::message(reshade::log::level::error, message.c_str());
             }
         }
         else
@@ -287,14 +290,14 @@ void screenshot_environment::init()
             else
             {
                 const std::string message = std::format("Failed to create the Add-on specific effect with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), copy_to.u8string().c_str());
-                reshade::log_message(reshade::log_level::error, message.c_str());
+                reshade::log::message(reshade::log::level::error, message.c_str());
             }
         }
     }
     else
     {
         const std::string message = std::format("Failed to create the directory of Add-on specific shaders with error code %d! '%s' \"%s\"", ec.value(), format_message(ec.value()).c_str(), addon_shaders.u8string().c_str());
-        reshade::log_message(reshade::log_level::error, message.c_str());
+        reshade::log::message(reshade::log::level::error, message.c_str());
     }
 
     bool effect_search_paths_updated = false;
@@ -384,7 +387,7 @@ bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot
 
                         if (texture_format != reshade::api::format::r32_float)
                         {
-                            reshade::log_message(reshade::log_level::error, std::format("Screenshots are not supported for format %u !", desc.texture.format).c_str());
+                            reshade::log::message(reshade::log::level::error, std::format("Screenshots are not supported for format %u !", desc.texture.format).c_str());
                             return false;
                         }
 
@@ -392,7 +395,7 @@ bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot
                         reshade::api::resource intermediate;
                         if (!device->create_resource(reshade::api::resource_desc(desc.texture.width, desc.texture.height, 1, 1, texture_format, 1, reshade::api::memory_heap::gpu_to_cpu, reshade::api::resource_usage::copy_dest), nullptr, reshade::api::resource_usage::copy_dest, &intermediate))
                         {
-                            reshade::log_message(reshade::log_level::error, "Failed to create system memory texture for screenshot capture!");
+                            reshade::log::message(reshade::log::level::error, "Failed to create system memory texture for screenshot capture!");
                             return false;
                         }
 
@@ -446,31 +449,45 @@ bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot
     return false;
 }
 
-void screenshot::save()
+void screenshot::save_preset(reshade::api::effect_runtime *runtime)
+{
+    if (runtime == nullptr)
+        return;
+
+    std::error_code ec;
+    std::filesystem::path preset_file = expand_macro_string(myset.image_paths[preset].u8string());
+    preset_file.replace_extension() += L".ini";
+    preset_file = std::filesystem::weakly_canonical(environment.reshade_base_path / preset_file, ec);
+
+    std::string preset_file_u8 = preset_file.u8string();
+    runtime->export_current_preset(preset_file_u8.c_str());
+}
+
+void screenshot::save_image()
 {
     for (size_t i = 0; i < captures.size(); i++)
     {
         if (std::vector<uint32_t> &capture = captures[i]; !capture.empty())
-            save(static_cast<screenshot_kind>(i));
+            save_image(static_cast<screenshot_kind>(i));
     }
 }
-void screenshot::save(screenshot_kind kind)
+void screenshot::save_image(screenshot_kind kind)
 {
     const auto begin = std::chrono::system_clock::now();
 
     std::error_code ec{};
     enum { ok, open_error, write_error } result = ok;
 
-    image_file = myset.image_paths[kind];
-    uint64_t freelimit = myset.image_freelimits[kind];
+    const uint64_t freelimit = myset.image_freelimits[kind];
 
+    image_file = myset.image_paths[kind];
     image_file = std::filesystem::u8path(expand_macro_string(image_file.u8string()));
     image_file = std::filesystem::weakly_canonical(environment.reshade_base_path / image_file, ec);
 
     if (!image_file.has_filename())
     {
         message = std::format("Skip saving '%s' screenshot because the path has no file name! \"%s\"", get_screenshot_kind_name(kind), image_file.u8string().c_str());
-        reshade::log_message(reshade::log_level::error, message.c_str());
+        reshade::log::message(reshade::log::level::error, message.c_str());
 
         result = open_error;
 
@@ -482,7 +499,7 @@ void screenshot::save(screenshot_kind kind)
     if (std::filesystem::create_directories(parent_path, ec), ec)
     {
         message = std::format("Failed to create '%s' screenshot directory with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), parent_path.u8string().c_str());
-        reshade::log_message(reshade::log_level::error, message.c_str());
+        reshade::log::message(reshade::log::level::error, message.c_str());
 
         result = open_error;
 
@@ -513,7 +530,7 @@ void screenshot::save(screenshot_kind kind)
                 message = std::format("Blocked to create '%s' screenshot due to disk space limitation! %*s (%.1f%%) used of %*s (%.1f%% free < %llu%%)", get_screenshot_kind_name(kind),
                     usedBytesStr.size(), usedBytesStr.c_str(), (1.0 - free_ratio) * 100,
                     diskBytesStr.size(), diskBytesStr.c_str(), free_ratio * 100, freelimit);
-                reshade::log_message(reshade::log_level::error, message.c_str());
+                reshade::log::message(reshade::log::level::error, message.c_str());
 
                 result = open_error;
 
@@ -530,11 +547,10 @@ void screenshot::save(screenshot_kind kind)
             const std::string target = parent_path.u8string();
 
             message = std::format("GetDiskFreeSpaceExW() returns %d! '%*s' \"%*s\"", ec.value(), reason.size(), reason.c_str(), target.size(), target.c_str());
-            reshade::log_message(reshade::log_level::debug, message.c_str());
+            reshade::log::message(reshade::log::level::debug, message.c_str());
 #endif
         }
     }
-
     if (kind == screenshot_kind::depth)
     {
         int tif_ec = 0;
@@ -623,7 +639,7 @@ void screenshot::save(screenshot_kind kind)
             else
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
-                reshade::log_message(reshade::log_level::error, message.c_str());
+                reshade::log::message(reshade::log::level::error, message.c_str());
 
                 result = condition == condition::open ? write_error : open_error;
             }
@@ -692,7 +708,7 @@ void screenshot::save(screenshot_kind kind)
                 else
                 {
                     message = std::format("Failed to saving '%s' screenshot! \"%s\"", get_screenshot_kind_name(kind), image_file.u8string().c_str());
-                    reshade::log_message(reshade::log_level::error, message.c_str());
+                    reshade::log::message(reshade::log::level::error, message.c_str());
 
                     result = write_error;
                 }
@@ -730,7 +746,7 @@ void screenshot::save(screenshot_kind kind)
             else
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
-                reshade::log_message(reshade::log_level::error, message.c_str());
+                reshade::log::message(reshade::log::level::error, message.c_str());
 
                 result = write_error;
             }
@@ -741,7 +757,7 @@ void screenshot::save(screenshot_kind kind)
             if (strerror_s(buffer, fopen_error) == 0)
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), fopen_error, buffer, image_file.u8string().c_str());
-                reshade::log_message(reshade::log_level::error, message.c_str());
+                reshade::log::message(reshade::log::level::error, message.c_str());
             }
 
             result = open_error;
@@ -797,7 +813,7 @@ void screenshot::save(screenshot_kind kind)
             else
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
-                reshade::log_message(reshade::log_level::error, message.c_str());
+                reshade::log::message(reshade::log::level::error, message.c_str());
 
                 result = condition == condition::create ? write_error : open_error;
             }
@@ -906,7 +922,7 @@ void screenshot::save(screenshot_kind kind)
             else
             {
                 message = std::format("Failed to saving '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str());
-                reshade::log_message(reshade::log_level::error, message.c_str());
+                reshade::log::message(reshade::log::level::error, message.c_str());
 
                 result = write_error;
             }
@@ -914,7 +930,7 @@ void screenshot::save(screenshot_kind kind)
         else
         {
             message = std::format("Failed to saving '%s' screenshot path \"%s\"!", get_screenshot_kind_name(kind), image_file.u8string().c_str());
-            reshade::log_message(reshade::log_level::error, message.c_str());
+            reshade::log::message(reshade::log::level::error, message.c_str());
 
             result = open_error;
         }
@@ -934,7 +950,7 @@ void screenshot::save(screenshot_kind kind)
             if (DeleteFileW(image_file.c_str()) == FALSE)
             {
                 ec = std::error_code(GetLastError(), std::system_category());
-                reshade::log_message(reshade::log_level::error, std::format("Failed to deleting '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str()).c_str());
+                reshade::log::message(reshade::log::level::error, std::format("Failed to deleting '%s' screenshot with error code %d! '%s' \"%s\"", get_screenshot_kind_name(kind), ec.value(), format_message(ec.value()).c_str(), image_file.u8string().c_str()).c_str());
             }
         }
     }
@@ -1098,7 +1114,7 @@ void screenshot::user_error_fn(png_structp png_ptr, png_const_charp error_msg)
         {
             context->message = std::format("libpng: Fatal error '%s'! \"%s\"", error_msg == nullptr ? "(null)" : *error_msg ? error_msg : "(no message)", context->image_file.u8string().c_str());
         }
-        reshade::log_message(reshade::log_level::error, context->message.c_str());
+        reshade::log::message(reshade::log::level::error, context->message.c_str());
     }
 
     png_longjmp(png_ptr, 1);
@@ -1118,6 +1134,6 @@ void screenshot::user_warning_fn(png_structp png_ptr, png_const_charp warning_ms
         {
             context->message = std::format("libpng: Fatal error '%s'! \"%s\"", warning_msg == nullptr ? "(null)" : *warning_msg ? warning_msg : "(no message)", context->image_file.u8string().c_str());
         }
-        reshade::log_message(reshade::log_level::warning, context->message.c_str());
+        reshade::log::message(reshade::log::level::warning, context->message.c_str());
     }
 }
