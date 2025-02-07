@@ -459,12 +459,8 @@ void screenshot::save_preset(reshade::api::effect_runtime *runtime)
     preset_file.replace_extension() += L".ini";
     preset_file = std::filesystem::weakly_canonical(environment.reshade_base_path / preset_file, ec);
 
-    const std::filesystem::path parent_path = preset_file.parent_path();
-    if (std::filesystem::create_directories(parent_path, ec); !ec)
-    {
-        std::string preset_file_u8 = preset_file.u8string();
-        runtime->export_current_preset(preset_file_u8.c_str());
-    }
+    if (std::filesystem::create_directories(preset_file.parent_path(), ec); !ec)
+        runtime->export_current_preset(preset_file.u8string().c_str());
 }
 
 void screenshot::save_image()
