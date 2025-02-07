@@ -66,7 +66,14 @@ inline bool screenshot_context::is_screenshot_frame() const noexcept
 }
 inline bool screenshot_context::is_screenshot_frame(screenshot_kind kind) const noexcept
 {
-    return is_screenshot_frame() && active_screenshot->is_enable(kind);
+    if (!is_screenshot_frame())
+        return false;
+    if (!active_screenshot->is_enable(kind))
+        return false;
+    if (kind == preset && screenshot_repeat_index != 0)
+        return false;
+
+    return true;
 }
 
 static void on_init(reshade::api::effect_runtime *runtime)
@@ -120,12 +127,12 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
 
         ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
 
-        if (ctx.screenshot_repeat_index == 0)
+        if (ctx.is_screenshot_frame(screenshot_kind::original))
+            ctx.screenshot_frame->capture(runtime, screenshot_kind::original);
+
+        if (ctx.is_screenshot_frame(screenshot_kind::preset))
             ctx.screenshot_frame->save_preset(runtime);
     }
-
-    if (ctx.is_screenshot_frame(screenshot_kind::original) && ctx.screenshot_frame)
-        ctx.screenshot_frame->capture(runtime, screenshot_kind::original);
 
     if (reshade::api::effect_technique technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14"); technique.handle != 0)
     {
@@ -595,9 +602,9 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                             }
                         };
 #if 0
-                    _("Preset path")
+                    _("Preset path");
 #endif
-                        draw_control_screenshot_path(screenshot_kind::preset, screenshot_myset.image_paths[screenshot_kind::preset], screenshot_myset.preset_status, "##preset", "##preset_enabled", __COMPUTE_CRC16("Preset path"));
+                    draw_control_screenshot_path(screenshot_kind::preset, screenshot_myset.image_paths[screenshot_kind::preset], screenshot_myset.preset_status, "##preset", "##preset_enabled", __COMPUTE_CRC16("Preset path"));
                     draw_control_screenshot_path(screenshot_kind::original, screenshot_myset.image_paths[screenshot_kind::original], screenshot_myset.original_status, "##image_original", "##image_original_enabled", __COMPUTE_CRC16("Original image"));
                     draw_control_screenshot_path(screenshot_kind::before, screenshot_myset.image_paths[screenshot_kind::before], screenshot_myset.before_status, "##image_before", "##image_before_enabled", __COMPUTE_CRC16("Before image"));
                     draw_control_screenshot_path(screenshot_kind::after, screenshot_myset.image_paths[screenshot_kind::after], screenshot_myset.after_status, "##image_after", "##image_after_enabled", __COMPUTE_CRC16("After image"));
