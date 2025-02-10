@@ -239,7 +239,7 @@ public:
 
     bool capture(reshade::api::effect_runtime *const runtime, screenshot_kind kind);
 
-    void save_preset(reshade::api::effect_runtime *runtime = nullptr);
+    void save_preset(reshade::api::effect_runtime *runtime);
 
     void save_image();
     void save_image(screenshot_kind kind);

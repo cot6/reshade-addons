@@ -10,6 +10,9 @@
 [submodule "deps/reshade.v14"]
 	path = deps/reshade.v14
 	url = https://github.com/cot6/reshade.git
+[submodule "deps/reshade.v16"]
+	path = deps/reshade.v16
+	url = https://github.com/crosire/reshade.git
 [submodule "deps/vcpkg"]
 	path = deps/vcpkg
 	url = https://github.com/microsoft/vcpkg.git
