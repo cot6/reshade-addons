@@ -1,0 +1,79 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Run bootstrap script
+        shell: pwsh
+        run: tools\bootstrap.ps1
+
+      - name: Build Debug for 32-bit
+        run: msbuild reshade-addons.sln /m /p:Platform="32-bit" /p:Configuration="Debug"
+
+      - name: Build Debug for 64-bit
+        run: msbuild reshade-addons.sln /m /p:Platform="64-bit" /p:Configuration="Debug"
+
+      - name: Build Release for 32-bit
+        run: msbuild reshade-addons.sln /m /p:Platform="32-bit" /p:Configuration="Release"
+
+      - name: Build Release for 64-bit
+        run: msbuild reshade-addons.sln /m /p:Platform="64-bit" /p:Configuration="Release"
+
+      - name: Run publish script
+        shell: pwsh
+        run: tools\publish.ps1
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: reshade-addons-release-files
+          path: publish\ReShade*.*
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          body: This is an automated release. Please manually edit the content.
+          make_latest: true
+          draft: true
+          prerelease: false
+          preserve_order: true
+          files: publish/ReShade*.*
+          fail_on_unmatched_files: true
+
+      - name: Update ReShade Referred Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: setup-release-reference
+          tag_name: setup-release-reference
+          body: No information about updates here.
+          make_latest: false
+          draft: false
+          prerelease: true
+          preserve_order: true
+          files: publish/ReShade*.*
+          fail_on_unmatched_files: true
