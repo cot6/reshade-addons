@@ -66,7 +66,14 @@ inline bool screenshot_context::is_screenshot_frame() const noexcept
 }
 inline bool screenshot_context::is_screenshot_frame(screenshot_kind kind) const noexcept
 {
-    return is_screenshot_frame() && active_screenshot->is_enable(kind);
+    if (!is_screenshot_frame())
+        return false;
+    if (!active_screenshot->is_enable(kind))
+        return false;
+    if (kind == preset && screenshot_repeat_index != 0)
+        return false;
+
+    return true;
 }
 
 static void on_init(reshade::api::effect_runtime *runtime)
@@ -119,10 +126,13 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
             ctx.statistics.capture_counts.try_emplace(ctx.active_screenshot->name).first->second.total_frame++;
 
         ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
-    }
 
-    if (ctx.is_screenshot_frame(screenshot_kind::original) && ctx.screenshot_frame)
-        ctx.screenshot_frame->capture(runtime, screenshot_kind::original);
+        if (ctx.is_screenshot_frame(screenshot_kind::original))
+            ctx.screenshot_frame->capture(runtime, screenshot_kind::original);
+
+        if (ctx.is_screenshot_frame(screenshot_kind::preset))
+            ctx.screenshot_frame->save_preset(runtime);
+    }
 
     if (reshade::api::effect_technique technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14"); technique.handle != 0)
     {
@@ -181,7 +191,7 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
             std::thread screenshot_thread = std::thread(
                [&ctx, screenshot = std::move(ctx.screenshots.back())]() mutable
                {
-                   screenshot.save();
+                   screenshot.save_image();
                    ctx.screenshot_active_threads--;
                });
 
@@ -300,8 +310,9 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
                             ctx.effects_state_activated = false;
                             break;
                     }
-                    break;
                 }
+
+                break;
             }
         }
     }
@@ -496,7 +507,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                             buf[path.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
 
                             ImGui::SetNextItemWidth(ImGui::CalcItemWidth() - button_size - button_spacing);
-                            ImGui::InputTextWithHint(text_id, _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter);
+                            ImGui::InputTextWithHint(text_id, kind == preset ? _("Enter path to archive") : _("Enter path to capture"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter);
                             bool item_hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
 
                             if (ImGui::IsItemDeactivatedAfterEdit())
@@ -521,7 +532,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                                 {
                                     if (ImGui::BeginTooltip())
                                     {
-                                        ImGui::TextUnformatted(_("Toggle whether to capture the frame."));
+                                        ImGui::TextUnformatted(kind == preset ? _("Toggle whether to archive the preset.") : _("Toggle whether to capture the frame."));
                                         ImGui::EndTooltip();
                                     }
                                 }
@@ -559,6 +570,9 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                                         case depth:
                                             tooltip += _("Capture the depth of the frame that was used in the game only if effects are enabled.");
                                             break;
+                                        case preset:
+                                            tooltip += _("The current preset will be archived with image. This process will only be performed at the first frame.");
+                                            break;
                                     }
                                     tooltip += "\n\n";
                                     tooltip += _("Macros you can add that are resolved during saving:\n"
@@ -587,7 +601,10 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                                 }
                             }
                         };
-
+#if 0
+                    _("Preset path");
+#endif
+                    draw_control_screenshot_path(screenshot_kind::preset, screenshot_myset.image_paths[screenshot_kind::preset], screenshot_myset.preset_status, "##preset", "##preset_enabled", __COMPUTE_CRC16("Preset path"));
                     draw_control_screenshot_path(screenshot_kind::original, screenshot_myset.image_paths[screenshot_kind::original], screenshot_myset.original_status, "##image_original", "##image_original_enabled", __COMPUTE_CRC16("Original image"));
                     draw_control_screenshot_path(screenshot_kind::before, screenshot_myset.image_paths[screenshot_kind::before], screenshot_myset.before_status, "##image_before", "##image_before_enabled", __COMPUTE_CRC16("Before image"));
                     draw_control_screenshot_path(screenshot_kind::after, screenshot_myset.image_paths[screenshot_kind::after], screenshot_myset.after_status, "##image_after", "##image_after_enabled", __COMPUTE_CRC16("After image"));

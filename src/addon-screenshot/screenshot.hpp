@@ -34,6 +34,7 @@ enum screenshot_kind
     after = 3,
     overlay = 4,
     depth = 5,
+    preset = 6,
     _max,
 };
 
@@ -115,6 +116,7 @@ public:
 
     // Validating
 
+    std::string preset_status;
     std::string original_status;
     std::string before_status;
     std::string after_status;
@@ -209,7 +211,7 @@ public:
     screenshot_myset myset;
     screenshot_state &state;
 
-    std::filesystem::path image_file;
+    std::filesystem::path image_file, preset_file;
     std::array<std::filesystem::path, screenshot_kind::_max> image_files;
 
     unsigned int repeat_index = 0;
@@ -237,8 +239,11 @@ public:
 
     bool capture(reshade::api::effect_runtime *const runtime, screenshot_kind kind);
 
-    void save();
-    void save(screenshot_kind kind);
+    void save_preset(reshade::api::effect_runtime *runtime);
+
+    void save_image();
+    void save_image(screenshot_kind kind);
+
     std::string expand_macro_string(const std::string &input) const;
 
     [[noreturn]]
