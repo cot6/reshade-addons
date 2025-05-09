@@ -901,30 +901,6 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
     if (modified)
         ctx.save();
 }
-static void draw_statistics_window(reshade::api::effect_runtime *runtime)
-{
-    reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
-        return;
-
-    if (ImGui::CollapsingHeader(_("Screenshot Add-On [by seri14]"), ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        ImGui::BeginGroup();
-
-        ImGui::TextUnformatted(_("Original image"));
-        ImGui::TextUnformatted(_("Before image"));
-        ImGui::TextUnformatted(_("After image"));
-        ImGui::TextUnformatted(_("Overlay image"));
-        ImGui::TextUnformatted(_("Depth image"));
-
-        ImGui::EndGroup();
-        ImGui::SameLine(ImGui::GetWindowWidth() * 0.33333333f);
-        ImGui::BeginGroup();
-
-        ImGui::EndGroup();
-    }
-}
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 {
@@ -949,7 +925,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
         reshade::register_event<reshade::addon_event::reshade_present>(on_reshade_present);
         reshade::register_overlay("OSD", draw_osd_window);
         reshade::register_overlay("Settings###settings", draw_setting_window);
-        reshade::register_overlay("Statistics###statistics", draw_statistics_window);
 
         ini_file::flush_cache(true);
     }
@@ -959,7 +934,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 
         reshade::unregister_overlay("OSD", draw_osd_window);
         reshade::unregister_overlay("Settings###settings", draw_setting_window);
-        reshade::unregister_overlay("Statistics###statistics", draw_statistics_window);
         reshade::unregister_addon(hModule);
 
         g_module_handle = nullptr;
