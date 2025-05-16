@@ -118,6 +118,8 @@ void screenshot_myset::load(const ini_file &config)
         zlib_compression_level = Z_BEST_COMPRESSION;
     if (!config.get(section, "ZlibCompressionStrategy", zlib_compression_strategy))
         zlib_compression_strategy = Z_RLE;
+    if (!config.get(section, "TiffCompressionAlgorithm", tiff_compression_algorithm))
+        tiff_compression_algorithm = COMPRESSION_LZW;
 }
 void screenshot_myset::save(ini_file &config) const
 {
@@ -147,6 +149,7 @@ void screenshot_myset::save(ini_file &config) const
     config.set(section, "LibpngPngFilters", libpng_png_filters);
     config.set(section, "ZlibCompressionLevel", zlib_compression_level);
     config.set(section, "ZlibCompressionStrategy", zlib_compression_strategy);
+    config.set(section, "TiffCompressionAlgorithm", tiff_compression_algorithm);
 }
 void screenshot_statistics::load(const ini_file &config)
 {
@@ -360,9 +363,12 @@ bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot
     if (runtime == nullptr)
         return false;
 
+    reshade::api::device *device = runtime->get_device();
+    if (device == nullptr)
+        return false;
+
+    screenshot_capture &capture = captures[kind];
     runtime->get_screenshot_width_and_height(&width, &height);
-    std::vector<uint32_t> &capture = captures[kind];
-    capture.resize(static_cast<size_t>(width) * height);
 
     switch (kind)
     {
@@ -370,22 +376,28 @@ bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot
         case screenshot_kind::before:
         case screenshot_kind::after:
         case screenshot_kind::overlay:
-            return runtime->capture_screenshot(capture.data());
+        {
+            reshade::api::resource_desc desc = device->get_resource_desc(runtime->get_current_back_buffer());
+            capture.texture_format = desc.texture.format;
+
+            const size_t pixels_row_pitch = reshade::api::format_row_pitch(capture.texture_format, width);
+            assert(pixels_row_pitch != 0);
+
+            capture.pixels.resize(pixels_row_pitch * height);
+
+            return runtime->capture_screenshot(capture.pixels.data());
+        }
         default:
         case screenshot_kind::depth:
+        {
             if (runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14").handle != 0)
             {
-                reshade::api::device *const device = runtime->get_device();
-
-                if (device == nullptr)
-                    return false;
-
-                auto get_texture_data = [runtime, device](reshade::api::resource resource, reshade::api::resource_usage state, std::vector<uint32_t> &texture_data, reshade::api::format &texture_format) -> bool
+                auto get_texture_data = [runtime, device](reshade::api::resource resource, reshade::api::resource_usage state, screenshot_capture &capture) -> bool
                     {
                         const reshade::api::resource_desc desc = device->get_resource_desc(resource);
-                        texture_format = reshade::api::format_to_default_typed(desc.texture.format, 0);
+                        capture.texture_format = reshade::api::format_to_default_typed(desc.texture.format, 0);
 
-                        if (texture_format != reshade::api::format::r32_float)
+                        if (capture.texture_format != reshade::api::format::r32_float)
                         {
                             reshade::log::message(reshade::log::level::error, std::format("Screenshots are not supported for format %u !", desc.texture.format).c_str());
                             return false;
@@ -393,13 +405,13 @@ bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot
 
                         // Copy back buffer data into system memory buffer
                         reshade::api::resource intermediate;
-                        if (!device->create_resource(reshade::api::resource_desc(desc.texture.width, desc.texture.height, 1, 1, texture_format, 1, reshade::api::memory_heap::gpu_to_cpu, reshade::api::resource_usage::copy_dest), nullptr, reshade::api::resource_usage::copy_dest, &intermediate))
+                        if (!device->create_resource(reshade::api::resource_desc(desc.texture.width, desc.texture.height, 1, 1, capture.texture_format, 1, reshade::api::memory_heap::gpu_to_cpu, reshade::api::resource_usage::copy_dest), nullptr, reshade::api::resource_usage::copy_dest, &intermediate))
                         {
                             reshade::log::message(reshade::log::level::error, "Failed to create system memory texture for screenshot capture!");
                             return false;
                         }
 
-                        device->set_resource_name(intermediate, "ReShade screenshot texture");
+                        device->set_resource_name(intermediate, "ReShade Screenshot Add-on Texture");
 
                         reshade::api::command_list *const cmd_list = runtime->get_command_queue()->get_immediate_command_list();
                         cmd_list->barrier(resource, state, reshade::api::resource_usage::copy_source);
@@ -415,12 +427,19 @@ bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot
                         if (device->map_texture_region(intermediate, 0, nullptr, reshade::api::map_access::read_only, &mapped_data))
                         {
                             const uint8_t *mapped_pixels = static_cast<const uint8_t *>(mapped_data.data);
-                            const uint32_t pixels_row_pitch = 4u * desc.texture.width;
-                            texture_data.resize(desc.texture.width * desc.texture.height);
-                            uint8_t *pixels = reinterpret_cast<uint8_t *>(texture_data.data());
+                            const size_t bytes_row_pitch = 4LLU * desc.texture.width;
+                            capture.pixels.resize(desc.texture.width * desc.texture.height);
 
-                            for (uint32_t y = 0; y < desc.texture.height; ++y, pixels += pixels_row_pitch, mapped_pixels += mapped_data.row_pitch)
-                                std::memcpy(pixels, mapped_pixels, pixels_row_pitch);
+                            uint32_t *pixels = capture.pixels.data();
+                            if (bytes_row_pitch == mapped_data.row_pitch)
+                            {
+                                std::memcpy(pixels, mapped_pixels, bytes_row_pitch * desc.texture.height);
+                            }
+                            else
+                            {
+                                for (uint32_t y = 0; y < desc.texture.height; ++y, pixels += desc.texture.width, mapped_pixels += mapped_data.row_pitch)
+                                    std::memcpy(pixels, mapped_pixels, bytes_row_pitch);
+                            }
 
                             device->unmap_texture_region(intermediate, 0);
                         }
@@ -437,13 +456,13 @@ bool screenshot::capture(reshade::api::effect_runtime *const runtime, screenshot
                     {
                         if (reshade::api::resource resource = device->get_resource_from_view(rsv); resource.handle != 0)
                         {
-                            reshade::api::format texture_format;
-                            return get_texture_data(resource, reshade::api::resource_usage::shader_resource, capture, texture_format);
+                            return get_texture_data(resource, reshade::api::resource_usage::shader_resource, capture);
                         }
                     }
                 }
             }
             break;
+        }
     }
 
     return false;
@@ -467,7 +486,7 @@ void screenshot::save_image()
 {
     for (size_t i = 0; i < captures.size(); i++)
     {
-        if (std::vector<uint32_t> &capture = captures[i]; !capture.empty())
+        if (const screenshot_capture &capture = captures[i]; !capture.pixels.empty())
             save_image(static_cast<screenshot_kind>(i));
     }
 }
@@ -551,6 +570,9 @@ void screenshot::save_image(screenshot_kind kind)
 #endif
         }
     }
+
+    screenshot_capture &capture = captures[kind];
+
     if (kind == screenshot_kind::depth)
     {
         int tif_ec = 0;
@@ -559,13 +581,13 @@ void screenshot::save_image(screenshot_kind kind)
         if (TIFF *tif = TIFFOpenW(image_file.c_str(), "wl");
             tif != nullptr)
         {
-            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), sizeof(uint32_t) * captures[screenshot_kind::depth].size()));
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), sizeof(uint32_t) * capture.pixels.size()));
 
             // 256 - 259
             TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
             TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint16_t>(height));
             TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, (uint16_t)32);
-            TIFFSetField(tif, TIFFTAG_COMPRESSION, (uint16_t)COMPRESSION_LZW);
+            TIFFSetField(tif, TIFFTAG_COMPRESSION, (uint16_t)myset.tiff_compression_algorithm);
 
             // 262
             TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, (uint16_t)PHOTOMETRIC_MINISBLACK);
@@ -606,7 +628,7 @@ void screenshot::save_image(screenshot_kind kind)
             TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_IEEEFP);
 
             const size_t row_strip_length = static_cast<size_t>(4) * width;
-            uint8_t *buf = reinterpret_cast<uint8_t *>(captures[kind].data());
+            uint8_t *buf = reinterpret_cast<uint8_t *>(capture.pixels.data());
             for (uint32_t row = 0; row < height; ++row, buf += row_strip_length)
                 TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));
 
@@ -656,7 +678,7 @@ void screenshot::save_image(screenshot_kind kind)
             const unsigned int channels = myset.image_format == 0 ? 3 : 4;
             const unsigned int size = width * height;
 
-            uint8_t *pixel = reinterpret_cast<uint8_t *>(captures[kind].data());
+            uint8_t *pixel = reinterpret_cast<uint8_t *>(capture.pixels.data());
             if (channels == 3)
             {
                 for (size_t i = 0; i < size; i++)
@@ -770,7 +792,7 @@ void screenshot::save_image(screenshot_kind kind)
         const unsigned int channels = myset.image_format == 2 ? 3 : 4;
         const unsigned int size = width * height;
 
-        uint8_t *const pixel = reinterpret_cast<uint8_t *>(captures[kind].data());
+        uint8_t *const pixel = reinterpret_cast<uint8_t *>(capture.pixels.data());
         if (channels == 3)
         {
             for (size_t i = 0; i < size; i++)
@@ -827,7 +849,7 @@ void screenshot::save_image(screenshot_kind kind)
         const unsigned int channels = myset.image_format == 4 ? 3 : 4;
         const unsigned int size = width * height;
 
-        uint8_t *const pixel = reinterpret_cast<uint8_t *>(captures[kind].data());
+        uint8_t *const pixel = reinterpret_cast<uint8_t *>(capture.pixels.data());
         if (channels == 3)
         {
             for (size_t i = 0; i < size; i++)
@@ -838,13 +860,13 @@ void screenshot::save_image(screenshot_kind kind)
         if (TIFF *tif = TIFFOpenW(image_file.c_str(), "wl");
             tif != nullptr)
         {
-            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), sizeof(uint32_t) * captures[kind].size()));
+            TIFFWriteBufferSetup(tif, nullptr, std::min<tmsize_t>(static_cast<size_t>(myset.file_write_buffer_size), sizeof(uint32_t) * capture.pixels.size()));
 
             // 256 - 259
             TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, static_cast<uint16_t>(width));
             TIFFSetField(tif, TIFFTAG_IMAGELENGTH, static_cast<uint16_t>(height));
             TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, (uint16_t)8);
-            TIFFSetField(tif, TIFFTAG_COMPRESSION, (uint16_t)COMPRESSION_LZW);
+            TIFFSetField(tif, TIFFTAG_COMPRESSION, (uint16_t)myset.tiff_compression_algorithm);
 
             // 262
             TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, (uint16_t)PHOTOMETRIC_RGB);
@@ -889,7 +911,7 @@ void screenshot::save_image(screenshot_kind kind)
             TIFFSetField(tif, TIFFTAG_SAMPLEFORMAT, (uint16_t)SAMPLEFORMAT_UINT);
 
             const unsigned int row_strip_length = channels * width;
-            uint8_t *buf = reinterpret_cast<uint8_t *>(captures[kind].data());
+            uint8_t *buf = reinterpret_cast<uint8_t *>(capture.pixels.data());
             for (uint32_t row = 0; row < height; ++row, buf += row_strip_length)
                 TIFFWriteScanline(tif, buf, row, static_cast<uint16_t>(row_strip_length));
 

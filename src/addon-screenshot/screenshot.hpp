@@ -23,6 +23,7 @@
 #include <reshade.hpp>
 #include <utf8\unchecked.h>
 
+#include <tiff.h>
 #include <png.h>
 #include <zlib.h>
 
@@ -60,8 +61,8 @@ constexpr const char *get_screenshot_kind_name(screenshot_kind kind)
 class screenshot_state
 {
 public:
-    std::atomic<uint64_t> last_elapsed;
     std::atomic<unsigned int> error_occurs;
+    std::atomic<uint64_t> last_elapsed;
 
     void reset()
     {
@@ -113,6 +114,7 @@ public:
     int libpng_png_filters = PNG_ALL_FILTERS;
     int zlib_compression_level = Z_BEST_COMPRESSION;
     int zlib_compression_strategy = Z_RLE;
+    int tiff_compression_algorithm = COMPRESSION_LZW;
 
     // Validating
 
@@ -179,6 +181,13 @@ public:
     void save(ini_file &config, bool header_only = false);
 };
 
+class screenshot_capture
+{
+public:
+    std::vector<uint32_t> pixels;
+    reshade::api::format texture_format;
+};
+
 class screenshot_environment
 {
 public:
@@ -217,7 +226,7 @@ public:
     unsigned int repeat_index = 0;
     unsigned int height = 0, width = 0;
 
-    std::array<std::vector<uint32_t>, screenshot_kind::_max> captures;
+    std::array<screenshot_capture, screenshot_kind::_max> captures;
     std::chrono::system_clock::time_point frame_time;
 
     std::string message;

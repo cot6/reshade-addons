@@ -385,8 +385,8 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
             uint64_t using_bytes = 0;
             std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
                 [&using_bytes](const screenshot &screenshot) {
-                    for (const std::vector<uint32_t> &capture : screenshot.captures)
-                        using_bytes += sizeof(uint32_t) * capture.size();
+                    for (const screenshot_capture &capture : screenshot.captures)
+                        using_bytes += sizeof(uint32_t) * capture.pixels.size();
                 });
             str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
             ImGui::Text("%*s", str.size(), str.c_str());
@@ -745,7 +745,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 ImGui::Text(_("Estimate memory usage: %.3lf MiB per once (%d images)"), static_cast<double>(depths * width * height) / (1024 * 1024 * 1), enables);
 
                 int file_write_buffer_size = screenshot_myset.file_write_buffer_size / (1024 * 1);
-                if (ImGui::SliderInt("File write buffer size", &file_write_buffer_size, 4, 1024 * 1, "%d KiB"))
+                if (ImGui::SliderInt(_("File write buffer size"), &file_write_buffer_size, 4, 1024 * 1, "%d KiB"))
                 {
                     modified = true;
                     screenshot_myset.file_write_buffer_size = std::clamp(file_write_buffer_size * (1024 * 1), 1024 * 4, std::numeric_limits<int>::max());
@@ -849,6 +849,39 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                                 *c = '\0';
                         }
                         modified |= reshade::imgui::radio_list(_("[zlib] Compression strategy"), compression_strategy_items, screenshot_myset.zlib_compression_strategy);
+                    }
+                }
+                if (screenshot_myset.image_format == 4 || screenshot_myset.image_format == 5 || screenshot_myset.is_enable(screenshot_kind::depth))
+                {
+                    if (ImGui::TreeNodeEx(_("LibTIFF settings###AdvancedSettingsLibtiff"), ImGuiTreeNodeFlags_NoTreePushOnOpen))
+                    {
+                        std::string preview_value;
+                        switch (screenshot_myset.tiff_compression_algorithm)
+                        {
+                            case COMPRESSION_NONE:
+                                preview_value = _("None");
+                                break;
+                            case COMPRESSION_LZW:
+                                preview_value = _("LZW");
+                                break;
+                            default:
+                                preview_value = _("Unknown");
+                                break;
+                        }
+                        if (ImGui::BeginCombo(_("Compression Algorithm###LibtiffCompressionAlgorithm"), preview_value.c_str(), ImGuiComboFlags_None))
+                        {
+                            if (ImGui::Selectable(_("None"), screenshot_myset.tiff_compression_algorithm == COMPRESSION_NONE))
+                            {
+                                screenshot_myset.tiff_compression_algorithm = COMPRESSION_NONE;
+                                modified = true;
+                            }
+                            if (ImGui::Selectable(_("LZW"), screenshot_myset.tiff_compression_algorithm == COMPRESSION_LZW))
+                            {
+                                screenshot_myset.tiff_compression_algorithm = COMPRESSION_LZW;
+                                modified = true;
+                            }
+                            ImGui::EndCombo();
+                        }
                     }
                 }
             }
