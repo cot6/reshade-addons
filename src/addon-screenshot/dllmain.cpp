@@ -81,15 +81,15 @@ static void on_init(reshade::api::effect_runtime *runtime)
     ini_file::flush_cache();
 
     reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->create_private_data<screenshot_context>();
+    screenshot_context *ctx = device->create_private_data<screenshot_context>();
 
-    ctx.active_screenshot = nullptr;
+    ctx->active_screenshot = nullptr;
 
-    ctx.environment.load(runtime);
-    ctx.config.load(ini_file::load_cache(ctx.environment.addon_screenshot_config_path));
-    ctx.statistics.load(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
+    ctx->environment.load(runtime);
+    ctx->config.load(ini_file::load_cache(ctx->environment.addon_screenshot_config_path));
+    ctx->statistics.load(ini_file::load_cache(ctx->environment.addon_screenshot_statistics_path));
 
-    ctx.screenshot_begin_frame = std::numeric_limits<decltype(ctx.screenshot_begin_frame)>::max();
+    ctx->screenshot_begin_frame = std::numeric_limits<decltype(ctx->screenshot_begin_frame)>::max();
 }
 static void on_destroy(reshade::api::device *device)
 {
@@ -107,148 +107,148 @@ static void on_device_present(reshade::api::command_queue *, reshade::api::swapc
     if (runtime == nullptr)
         return;
     reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
+    screenshot_context *ctx = device->get_private_data<screenshot_context>();
+    if (ctx == nullptr)
         return;
 
-    ctx.current_frame++;
-    ctx.present_time = std::chrono::system_clock::now();
+    ctx->current_frame++;
+    ctx->present_time = std::chrono::system_clock::now();
 
-    if (ctx.screenshot_frame = ctx.is_screenshot_frame() ? &ctx.screenshots.emplace_front(ctx.environment, *ctx.active_screenshot, ctx.screenshot_state, ctx.present_time, ctx.statistics) : nullptr;
-        ctx.screenshot_frame)
+    if (ctx->screenshot_frame = ctx->is_screenshot_frame() ? &ctx->screenshots.emplace_front(ctx->environment, *ctx->active_screenshot, ctx->screenshot_state, ctx->present_time, ctx->statistics) : nullptr;
+        ctx->screenshot_frame)
     {
-        ctx.screenshot_frame->repeat_index = ctx.screenshot_repeat_index;
+        ctx->screenshot_frame->repeat_index = ctx->screenshot_repeat_index;
 
-        ctx.capture_last = ctx.capture_time;
-        ctx.capture_time = ctx.present_time;
+        ctx->capture_last = ctx->capture_time;
+        ctx->capture_time = ctx->present_time;
 
-        if (ctx.statistics.capture_counts.try_emplace({}).first->second.total_frame++; ctx.active_screenshot != nullptr)
-            ctx.statistics.capture_counts.try_emplace(ctx.active_screenshot->name).first->second.total_frame++;
+        if (ctx->statistics.capture_counts.try_emplace({}).first->second.total_frame++; ctx->active_screenshot != nullptr)
+            ctx->statistics.capture_counts.try_emplace(ctx->active_screenshot->name).first->second.total_frame++;
 
-        ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
+        ctx->statistics.save(ini_file::load_cache(ctx->environment.addon_screenshot_statistics_path));
 
-        if (ctx.is_screenshot_frame(screenshot_kind::original))
-            ctx.screenshot_frame->capture(runtime, screenshot_kind::original);
+        if (ctx->is_screenshot_frame(screenshot_kind::original))
+            ctx->screenshot_frame->capture(runtime, screenshot_kind::original);
 
-        if (ctx.is_screenshot_frame(screenshot_kind::preset))
-            ctx.screenshot_frame->save_preset(runtime);
+        if (ctx->is_screenshot_frame(screenshot_kind::preset))
+            ctx->screenshot_frame->save_preset(runtime);
     }
 
     if (reshade::api::effect_technique technique = runtime->find_technique("__Addon_ScreenshotDepth_Seri14.addonfx", "__Addon_Technique_ScreenshotDepth_Seri14"); technique.handle != 0)
     {
-        const bool enabled = ctx.is_screenshot_frame(screenshot_kind::depth);
+        const bool enabled = ctx->is_screenshot_frame(screenshot_kind::depth);
 
         if (runtime->get_technique_state(technique) != enabled)
             runtime->set_technique_state(technique, enabled);
     }
 
-    if (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_while_myset_is_active &&
-        ctx.is_screenshot_frame(screenshot_kind::after) &&
+    if (ctx->config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_while_myset_is_active &&
+        ctx->is_screenshot_frame(screenshot_kind::after) &&
         !runtime->get_effects_state())
         runtime->set_effects_state(true);
 }
 static void on_begin_effects(reshade::api::effect_runtime *runtime, reshade::api::command_list *, reshade::api::resource_view, reshade::api::resource_view)
 {
     reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
+    screenshot_context *ctx = device->get_private_data<screenshot_context>();
+    if (ctx == nullptr)
         return;
 
-    if (ctx.is_screenshot_frame(screenshot_kind::before) && ctx.screenshot_frame)
-        ctx.screenshot_frame->capture(runtime, screenshot_kind::before);
+    if (ctx->is_screenshot_frame(screenshot_kind::before) && ctx->screenshot_frame)
+        ctx->screenshot_frame->capture(runtime, screenshot_kind::before);
 }
 static void on_finish_effects(reshade::api::effect_runtime *runtime, reshade::api::command_list *, reshade::api::resource_view, reshade::api::resource_view)
 {
     reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
+    screenshot_context *ctx = device->get_private_data<screenshot_context>();
+    if (ctx == nullptr)
         return;
 
-    if (ctx.is_screenshot_frame(screenshot_kind::after) && ctx.screenshot_frame)
-        ctx.screenshot_frame->capture(runtime, screenshot_kind::after);
+    if (ctx->is_screenshot_frame(screenshot_kind::after) && ctx->screenshot_frame)
+        ctx->screenshot_frame->capture(runtime, screenshot_kind::after);
 
-    if (ctx.is_screenshot_frame(screenshot_kind::depth) && ctx.screenshot_frame)
-        ctx.screenshot_frame->capture(runtime, screenshot_kind::depth);
+    if (ctx->is_screenshot_frame(screenshot_kind::depth) && ctx->screenshot_frame)
+        ctx->screenshot_frame->capture(runtime, screenshot_kind::depth);
 }
 static void on_reshade_present(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
+    screenshot_context *ctx = device->get_private_data<screenshot_context>();
+    if (ctx == nullptr)
         return;
 
-    if (ctx.is_screenshot_frame(screenshot_kind::overlay) && ctx.screenshot_frame)
-        ctx.screenshot_frame->capture(runtime, screenshot_kind::overlay);
+    if (ctx->is_screenshot_frame(screenshot_kind::overlay) && ctx->screenshot_frame)
+        ctx->screenshot_frame->capture(runtime, screenshot_kind::overlay);
 
-    if (!ctx.screenshots.empty())
+    if (!ctx->screenshots.empty())
     {
-        for (size_t remain = std::min(ctx.screenshots.size(), ctx.screenshot_worker_threads - ctx.screenshot_active_threads);
+        for (size_t remain = std::min(ctx->screenshots.size(), ctx->screenshot_worker_threads - ctx->screenshot_active_threads);
             remain > 0;
             remain--)
         {
-            ctx.screenshot_active_threads++;
+            ctx->screenshot_active_threads++;
 
             std::thread screenshot_thread = std::thread(
-               [&ctx, screenshot = std::move(ctx.screenshots.back())]() mutable
+               [&ctx, screenshot = std::move(ctx->screenshots.back())]() mutable
                {
                    screenshot.save_image();
-                   ctx.screenshot_active_threads--;
+                   ctx->screenshot_active_threads--;
                });
 
-            ctx.screenshots.pop_back();
+            ctx->screenshots.pop_back();
             screenshot_thread.detach();
 
-            if (ctx.screenshots.empty())
+            if (ctx->screenshots.empty())
                 break;
         }
     }
 
-    if (ctx.is_screenshot_frame())
+    if (ctx->is_screenshot_frame()) // Update ctx to ctx-> for consistency
     {
-        if (!ctx.active_screenshot->playsound_path.empty() || ctx.active_screenshot->playsound_force)
+        if (!ctx->active_screenshot->playsound_path.empty() || ctx->active_screenshot->playsound_force)
         {
-            if (ctx.screenshot_repeat_index == 0 ||
-                ctx.active_screenshot->playback_mode == decltype(screenshot_myset::playback_mode)::playback_every_time)
+            if (ctx->screenshot_repeat_index == 0 ||
+                ctx->active_screenshot->playback_mode == decltype(screenshot_myset::playback_mode)::playback_every_time)
             {
-                ctx.playsound_flags = SND_ASYNC;
-                if (ctx.active_screenshot->playsound_as_system_notification)
-                    ctx.playsound_flags |= SND_SYSTEM;
-                if (!ctx.active_screenshot->playsound_force)
-                    ctx.playsound_flags |= SND_NODEFAULT;
-                if (ctx.active_screenshot->playsound_path.has_extension())
-                    ctx.playsound_flags |= SND_FILENAME;
+                ctx->playsound_flags = SND_ASYNC;
+                if (ctx->active_screenshot->playsound_as_system_notification)
+                    ctx->playsound_flags |= SND_SYSTEM;
+                if (!ctx->active_screenshot->playsound_force)
+                    ctx->playsound_flags |= SND_NODEFAULT;
+                if (ctx->active_screenshot->playsound_path.has_extension())
+                    ctx->playsound_flags |= SND_FILENAME;
                 else
-                    ctx.playsound_flags |= SND_ALIAS;
-                if (ctx.active_screenshot->playback_mode == decltype(screenshot_myset::playback_mode)::playback_while_myset_is_active)
-                    ctx.playsound_flags |= SND_LOOP;
+                    ctx->playsound_flags |= SND_ALIAS;
+                if (ctx->active_screenshot->playback_mode == decltype(screenshot_myset::playback_mode)::playback_while_myset_is_active)
+                    ctx->playsound_flags |= SND_LOOP;
 
-                PlaySoundW(ctx.active_screenshot->playsound_path.empty() ? L"SystemDefault" : ctx.active_screenshot->playsound_path.c_str(), nullptr, ctx.playsound_flags);
+                PlaySoundW(ctx->active_screenshot->playsound_path.empty() ? L"SystemDefault" : ctx->active_screenshot->playsound_path.c_str(), nullptr, ctx->playsound_flags);
             }
         }
-        ctx.screenshot_repeat_index++;
+        ctx->screenshot_repeat_index++;
     }
 
-    if (ctx.active_screenshot != nullptr && ctx.active_screenshot->repeat_count != 0 && ctx.active_screenshot->repeat_count <= ctx.screenshot_repeat_index)
+    if (ctx->active_screenshot != nullptr && ctx->active_screenshot->repeat_count != 0 && ctx->active_screenshot->repeat_count <= ctx->screenshot_repeat_index)
     {
-        if ((ctx.playsound_flags & SND_LOOP) == SND_LOOP)
+        if ((ctx->playsound_flags & SND_LOOP) == SND_LOOP) // Update ctx to ctx-> for consistency
         {
-            PlaySoundW(nullptr, nullptr, ctx.playsound_flags);
-            ctx.playsound_flags = 0;
+            PlaySoundW(nullptr, nullptr, ctx->playsound_flags);
+            ctx->playsound_flags = 0;
         }
 
-        if (ctx.effects_state_activated)
+        if (ctx->effects_state_activated)
             runtime->set_effects_state(false);
 
-        ctx.active_screenshot = nullptr;
+        ctx->active_screenshot = nullptr; // Update ctx to ctx-> for consistency
     }
 
-    if (!ctx.ignore_shortcuts)
+    if (!ctx->ignore_shortcuts) // Update ctx to ctx-> for consistency
     {
         auto is_key_down = [runtime](unsigned int keycode) -> bool
             {
                 return !keycode || runtime->is_key_down(keycode);
             };
-        for (screenshot_myset &screenshot_myset : ctx.config.screenshot_mysets)
+        for (screenshot_myset &screenshot_myset : ctx->config.screenshot_mysets) // Update ctx to ctx-> for consistency
         {
             const unsigned int(&keys)[4] = screenshot_myset.screenshot_key_data;
 
@@ -257,57 +257,57 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 
             if (runtime->is_key_pressed(keys[0]) && is_key_down(keys[1]) && is_key_down(keys[2]) && is_key_down(keys[3]))
             {
-                if ((ctx.playsound_flags & SND_LOOP) == SND_LOOP)
+                if ((ctx->playsound_flags & SND_LOOP) == SND_LOOP) // Update ctx to ctx-> for consistency
                 {
-                    PlaySoundW(nullptr, nullptr, ctx.playsound_flags);
-                    ctx.playsound_flags = 0;
+                    PlaySoundW(nullptr, nullptr, ctx->playsound_flags); // Update ctx to ctx-> for consistency
+                    ctx->playsound_flags = 0; // Update ctx to ctx-> for consistency
                 }
 
-                ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
+                ctx->statistics.save(ini_file::load_cache(ctx->environment.addon_screenshot_statistics_path)); // Update ctx to ctx-> for consistency
 
-                if (ctx.active_screenshot == &screenshot_myset)
+                if (ctx->active_screenshot == &screenshot_myset)
                 {
-                    ctx.active_screenshot = nullptr;
+                    ctx->active_screenshot = nullptr;
 
-                    if (ctx.effects_state_activated)
+                    if (ctx->effects_state_activated) // Update ctx to ctx-> for consistency
                     {
-                        ctx.effects_state_activated = false;
+                        ctx->effects_state_activated = false; // Update ctx to ctx-> for consistency
                         runtime->set_effects_state(false);
                     }
                 }
                 else
                 {
-                    ctx.active_screenshot = &screenshot_myset;
-                    ctx.capture_time = std::numeric_limits<decltype(ctx.capture_time)>::max();
-                    ctx.capture_last = std::numeric_limits<decltype(ctx.capture_last)>::max();
+                    ctx->active_screenshot = &screenshot_myset; // Update ctx to ctx-> for consistency
+                    ctx->capture_time = std::numeric_limits<decltype(ctx->capture_time)>::max(); // Update ctx to ctx-> for consistency
+                    ctx->capture_last = std::numeric_limits<decltype(ctx->capture_last)>::max(); // Update ctx to ctx-> for consistency
 
-                    ctx.screenshot_state.reset();
+                    ctx->screenshot_state.reset(); // Update ctx to ctx-> for consistency
 
-                    ctx.screenshot_begin_frame = ctx.current_frame + 1;
-                    ctx.screenshot_repeat_index = 0;
+                    ctx->screenshot_begin_frame = ctx->current_frame + 1; // Update ctx to ctx-> for consistency
+                    ctx->screenshot_repeat_index = 0; // Update ctx to ctx-> for consistency
 
-                    if (ctx.statistics.capture_counts.try_emplace({}).first->second.total_take++; ctx.active_screenshot != nullptr)
-                        ctx.statistics.capture_counts.try_emplace(ctx.active_screenshot->name).first->second.total_take++;
+                    if (ctx->statistics.capture_counts.try_emplace({}).first->second.total_take++; ctx->active_screenshot != nullptr) // Update ctx to ctx-> for consistency
+                        ctx->statistics.capture_counts.try_emplace(ctx->active_screenshot->name).first->second.total_take++; // Update ctx to ctx-> for consistency
 
-                    ctx.statistics.save(ini_file::load_cache(ctx.environment.addon_screenshot_statistics_path));
+                    ctx->statistics.save(ini_file::load_cache(ctx->environment.addon_screenshot_statistics_path)); // Update ctx to ctx-> for consistency
 
                     if (screenshot_myset.worker_threads != 0)
-                        ctx.screenshot_worker_threads = screenshot_myset.worker_threads;
+                        ctx->screenshot_worker_threads = screenshot_myset.worker_threads; // Update ctx to ctx-> for consistency
                     else
-                        ctx.screenshot_worker_threads = std::thread::hardware_concurrency();
+                        ctx->screenshot_worker_threads = std::thread::hardware_concurrency(); // Update ctx to ctx-> for consistency
 
-                    switch (ctx.config.turn_on_effects)
+                    switch (ctx->config.turn_on_effects) // Update ctx to ctx-> for consistency
                     {
                         case decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset:
                         case decltype(screenshot_config::turn_on_effects)::turn_on_while_myset_is_active:
-                            if (ctx.is_screenshot_enable(screenshot_kind::after) && !runtime->get_effects_state())
+                            if (ctx->is_screenshot_enable(screenshot_kind::after) && !runtime->get_effects_state())
                             {
-                                ctx.effects_state_activated = true;
+                                ctx->effects_state_activated = true; // Update ctx to ctx-> for consistency
                                 runtime->set_effects_state(true);
                             }
                             break;
                         default:
-                            ctx.effects_state_activated = false;
+                            ctx->effects_state_activated = false; // Update ctx to ctx-> for consistency
                             break;
                     }
                 }
@@ -320,12 +320,12 @@ static void on_reshade_present(reshade::api::effect_runtime *runtime)
 static void on_reshade_overlay(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
+    screenshot_context *ctx = device->get_private_data<screenshot_context>();
+    if (ctx == nullptr)
         return;
 
     // Disable keyboard shortcuts while typing into input boxes
-    ctx.ignore_shortcuts = ImGui::IsAnyItemActive();
+    ctx->ignore_shortcuts = ImGui::IsAnyItemActive(); // Update ctx to ctx-> for consistency
 }
 
 static const ImVec4 COLOR_RED = ImColor(240, 100, 100);
@@ -334,12 +334,12 @@ static const ImVec4 COLOR_YELLOW = ImColor(204, 204, 0);
 static void draw_osd_window(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
+    screenshot_context *ctx = device->get_private_data<screenshot_context>();
+    if (ctx == nullptr)
         return;
 
     bool hide_osd = false;
-    switch (ctx.config.show_osd)
+    switch (ctx->config.show_osd) // Update ctx to ctx-> for consistency
     {
         case decltype(screenshot_config::show_osd)::hidden:
             hide_osd = true;
@@ -348,28 +348,28 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
             hide_osd = false;
             break;
         case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active:
-            hide_osd = ctx.active_screenshot == nullptr && ctx.screenshot_state.error_occurs == 0 && ctx.screenshots.empty();
+            hide_osd = ctx->active_screenshot == nullptr && ctx->screenshot_state.error_occurs == 0 && ctx->screenshots.empty(); // Update ctx to ctx-> for consistency 
             break;
         case decltype(screenshot_config::show_osd)::show_osd_while_myset_is_active_ignore_errors:
-            hide_osd = ctx.active_screenshot == nullptr;
+            hide_osd = ctx->active_screenshot == nullptr; // Update ctx to ctx-> for consistency    
             break;
     }
 
-    if (!hide_osd && ctx.active_screenshot)
+    if (!hide_osd && ctx->active_screenshot)
     {
         ImGui::Text("%s", _("Active set: "));
         ImGui::SameLine(0, 0);
-        ImGui::TextUnformatted(ctx.active_screenshot->name.c_str(), ctx.active_screenshot->name.c_str() + ctx.active_screenshot->name.size());
+        ImGui::TextUnformatted(ctx->active_screenshot->name.c_str(), ctx->active_screenshot->name.c_str() + ctx->active_screenshot->name.size());
     }
 
     if (!hide_osd)
     {
         float fraction;
         std::string str;
-        if (ctx.active_screenshot != nullptr)
+        if (ctx->active_screenshot != nullptr)
         {
-            fraction = (float)((ctx.current_frame - ctx.screenshot_begin_frame) % ctx.active_screenshot->repeat_interval) / ctx.active_screenshot->repeat_interval;
-            str = std::format(ctx.active_screenshot->repeat_count != 0 ? _("%u of %u") : _("%u times (Infinite mode)"), ctx.screenshot_repeat_index, ctx.active_screenshot->repeat_count);
+            fraction = (float)((ctx->current_frame - ctx->screenshot_begin_frame) % ctx->active_screenshot->repeat_interval) / ctx->active_screenshot->repeat_interval;
+            str = std::format(ctx->active_screenshot->repeat_count != 0 ? _("%u of %u") : _("%u times (Infinite mode)"), ctx->screenshot_repeat_index, ctx->active_screenshot->repeat_count);
         }
         else
         {
@@ -380,35 +380,35 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         ImGui::SameLine(15);
         ImGui::Text("%*s", str.size(), str.c_str());
 
-        if (!ctx.screenshots.empty())
+        if (!ctx->screenshots.empty()) // Update ctx to ctx-> for consistency
         {
             uint64_t using_bytes = 0;
-            std::for_each(ctx.screenshots.cbegin(), ctx.screenshots.cend(),
+            std::for_each(ctx->screenshots.cbegin(), ctx->screenshots.cend(),
                 [&using_bytes](const screenshot &screenshot) {
                     for (const screenshot_capture &capture : screenshot.captures)
                         using_bytes += sizeof(uint32_t) * capture.pixels.size();
                 });
-            str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx.screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1));
+            str = std::format(_("%u shots in queue (%.3lf MiB)"), ctx->screenshots.size(), static_cast<double>(using_bytes) / (1024 * 1024 * 1)); // Update ctx to ctx-> for consistency
             ImGui::Text("%*s", str.size(), str.c_str());
         }
     }
 
     if (!hide_osd)
     {
-        if (ctx.active_screenshot != nullptr &&
-            static_cast<long>(ctx.screenshot_state.last_elapsed / std::max<size_t>(1, ctx.screenshot_worker_threads)) > (ctx.capture_time - ctx.capture_last).count())
+        if (ctx->active_screenshot != nullptr &&
+            static_cast<long>(ctx->screenshot_state.last_elapsed / std::max<size_t>(1, ctx->screenshot_worker_threads)) > (ctx->capture_time - ctx->capture_last).count())
             ImGui::TextColored(COLOR_YELLOW, "%s", _("Processing of screenshots is too slow!"));
 
-        if (ctx.screenshot_state.error_occurs > 0)
+        if (ctx->screenshot_state.error_occurs > 0) // Update ctx to ctx-> for consistency
             ImGui::TextColored(COLOR_RED, "%s", _("Failed. Check details in the log."));
 
-        if ((ctx.is_screenshot_enable(screenshot_kind::before) || ctx.is_screenshot_enable(screenshot_kind::after)) &&
-            (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
+        if ((ctx->is_screenshot_enable(screenshot_kind::before) || ctx->is_screenshot_enable(screenshot_kind::after)) && // Update ctx to ctx-> for consistency
+            (ctx->config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx->config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
             !runtime->get_effects_state())
             ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Before\" and \"After\" captures because effects are disabled."));
 
-        if (ctx.is_screenshot_enable(screenshot_kind::depth) &&
-            (ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx.config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
+        if (ctx->is_screenshot_enable(screenshot_kind::depth) && // Update ctx to ctx-> for consistency
+            (ctx->config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::ignore || ctx->config.turn_on_effects == decltype(screenshot_config::turn_on_effects)::turn_on_when_activate_myset) &&
             !runtime->get_effects_state())
             ImGui::TextColored(COLOR_YELLOW, "%s", _("[WARNING] Skipping \"Depth\" capture because effects are disabled."));
     }
@@ -416,8 +416,8 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
 static void draw_setting_window(reshade::api::effect_runtime *runtime)
 {
     reshade::api::device *device = runtime->get_device();
-    screenshot_context &ctx = device->get_private_data<screenshot_context>();
-    if (std::addressof(ctx) == nullptr)
+    screenshot_context *ctx = device->get_private_data<screenshot_context>();
+    if (ctx == nullptr)
         return;
 
     const float button_size = ImGui::GetFrameHeight();
@@ -431,22 +431,22 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
         std::replace(show_osd_items.begin(), show_osd_items.end(), '\n', '\0');
         std::string turn_on_effects_items = _("Ignore\nWhile myset is active\nWhen activate myset\n");
         std::replace(turn_on_effects_items.begin(), turn_on_effects_items.end(), '\n', '\0');
-        modified |= ImGui::Combo(_("Show OSD"), reinterpret_cast<int *>(&ctx.config.show_osd), show_osd_items.c_str());
-        modified |= ImGui::Combo(_("Turn On Effects"), reinterpret_cast<int *>(&ctx.config.turn_on_effects), turn_on_effects_items.c_str());
+        modified |= ImGui::Combo(_("Show OSD"), reinterpret_cast<int *>(&ctx->config.show_osd), show_osd_items.c_str()); // Update ctx to ctx-> for consistency
+        modified |= ImGui::Combo(_("Turn On Effects"), reinterpret_cast<int *>(&ctx->config.turn_on_effects), turn_on_effects_items.c_str()); // Update ctx to ctx-> for consistency
 
         char buf[4096] = "";
         std::string playback_mode_items = _("Play sound only when first frame is captured\nPlay a sound each time a frame is captured\nPlay sound continuously while capturing frames\n");
         std::replace(playback_mode_items.begin(), playback_mode_items.end(), '\n', '\0');
 
-        for (screenshot_myset &screenshot_myset : ctx.config.screenshot_mysets)
+        for (screenshot_myset &screenshot_myset : ctx->config.screenshot_mysets) // Update ctx to ctx-> for consistency
         {
             const auto validate_image_path = [&ctx, &screenshot_myset](screenshot_kind kind, std::filesystem::path &image, std::string &status) {
                 if (status.clear(); image.empty() || image.native().front() == L'-')
                     return;
 
-                screenshot dummy(ctx.environment, screenshot_myset, ctx.screenshot_state, ctx.present_time, ctx.statistics);
+                screenshot dummy(ctx->environment, screenshot_myset, ctx->screenshot_state, ctx->present_time, ctx->statistics); // Update ctx to ctx-> for consistency
                 std::filesystem::path expanded = std::filesystem::u8path(dummy.expand_macro_string(image.u8string()));
-                expanded = ctx.environment.reshade_base_path / expanded;
+                expanded = ctx->environment.reshade_base_path / expanded;
 
                 if (!expanded.has_filename())
                 {
@@ -467,7 +467,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
             {
                 modified |= reshade::imgui::key_input_box(_("Screenshot key"), _("When you enter this key combination, the add-on will begin saving screenshots with the following setting. To abort the capture, re-enter the screenshot key."), screenshot_myset.screenshot_key_data, runtime);
 
-                ImGui::BeginDisabled(ctx.is_screenshot_active());
+                ImGui::BeginDisabled(ctx->is_screenshot_active());
 
                 if (buf[screenshot_myset.playsound_path.u8string().copy(buf, sizeof(buf) - 1)] = '\0';
                     ImGui::InputTextWithHint(_("Screenshot sound"), _("Enter path to play"), buf, sizeof(buf), ImGuiInputTextFlags_CallbackCharFilter, path_filter))
@@ -595,8 +595,8 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                                         "  <DATE[:format]>     Timestamp of taken screenshot\n"
                                         "                      (default: %%Y-%%m-%%d %%H-%%M-%%S)");
                                     ImGui::Text(tooltip.c_str(),
-                                        ctx.environment.reshade_executable_path.stem().string().c_str(),
-                                        ctx.environment.reshade_preset_path.stem().string().c_str());
+                                        ctx->environment.reshade_executable_path.stem().string().c_str(),
+                                        ctx->environment.reshade_preset_path.stem().string().c_str());
                                     ImGui::EndTooltip();
                                 }
                             }
@@ -890,16 +890,16 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
         }
         ImGui::TextUnformatted(_("Add set:"));
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FK_PLUS) || ctx.config.screenshot_mysets.empty())
+        if (ImGui::Button(ICON_FK_PLUS) || ctx->config.screenshot_mysets.empty())
         {
-            const ini_file &config_file = ini_file::load_cache(ctx.environment.addon_screenshot_config_path);
-            ctx.config.screenshot_mysets.emplace_back(config_file, "myset" + std::to_string(ctx.present_time.time_since_epoch().count()));
+            const ini_file &config_file = ini_file::load_cache(ctx->environment.addon_screenshot_config_path);
+            ctx->config.screenshot_mysets.emplace_back(config_file, "myset" + std::to_string(ctx->present_time.time_since_epoch().count()));
             modified = true;
         }
     }
 
     if (modified)
-        ctx.save();
+        ctx->save();
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
