@@ -1,3 +1,6 @@
 {
-    "dotnet.defaultSolution": "reshade-addons.sln"
+    "dotnet.defaultSolution": "reshade-addons.sln",
+    "files.associations": {
+        "*.addonfx": "hlsl"
+    }
 }
