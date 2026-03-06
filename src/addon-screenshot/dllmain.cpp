@@ -455,16 +455,15 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 std::filesystem::path expanded = std::filesystem::u8path(dummy.expand_macro_string(image.u8string()));
                 expanded = ctx.environment.reshade_base_path / expanded;
 
-                if (!expanded.has_filename())
+                std::error_code ec;
+                std::filesystem::file_status file = std::filesystem::status(expanded, ec);
+                if (!expanded.has_filename() || (file.type() != std::filesystem::file_type::not_found && file.type() != std::filesystem::file_type::regular))
                 {
                     status = _("File name is mandatory. You will get an error when saving screenshots.");
                     return;
                 }
 
-                std::error_code ec;
-                std::filesystem::file_status file = std::filesystem::status(expanded, ec);
-                if ((ec.value() != 0x0 && ec.value() != 0x2 && ec.value() != 0x3) ||
-                    (file.type() != std::filesystem::file_type::not_found && file.type() != std::filesystem::file_type::regular))
+                if (ec.value() != 0x0 && ec.value() != 0x2 && ec.value() != 0x3)
                     status = std::format(_("Check failed with %d. You will get an error when saving screenshots.\n%s"), ec.value(), format_message(ec.value(), 0).c_str());
                 };
 
