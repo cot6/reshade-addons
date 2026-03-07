@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -230,7 +230,7 @@ static bool on_reshade_overlay_uniform_variable(reshade::api::effect_runtime *ru
         if (ctx.ignore_preprocessor_definitions)
             apply_button_label += _("Save and complete adjustments");
         else
-            apply_button_label += _("Always save adjustments is active");
+            apply_button_label += _("Auto-save adjustments is active");
 
         if (ImGui::Button(apply_button_label.c_str(), ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight())))
             ctx.saving_variables = ctx.displaydepth_variables;
@@ -243,7 +243,7 @@ static bool on_reshade_overlay_uniform_variable(reshade::api::effect_runtime *ru
             const float content_region_width = ImGui::GetContentRegionAvail().x;
 
             ImGui::SetNextItemWidth(content_region_width - button_spacing - button_size);
-            reshade::imgui::key_input_box("##toggle_key", _("Save the current adjustments to the shortcut key.\nIf the shortcut key will be pressed later, adjustments will be overwritten immediately with the saved contents."), ctx.overwrite_key_data, runtime);
+            reshade::imgui::key_input_box("##toggle_key", _("Save the current adjustments to this shortcut key.\nWhen the shortcut key is pressed, the saved adjustments will be applied immediately."), ctx.overwrite_key_data, runtime);
             ImGui::SameLine(0, button_spacing);
             ImGui::BeginDisabled(ctx.overwrite_key_data[0] == 0);
             if (ImGui::Button(ICON_FK_FLOPPY, ImVec2(button_size, 0)))

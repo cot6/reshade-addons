@@ -13,8 +13,8 @@ STRINGTABLE
 BEGIN
 
 12556 "Save and complete adjustments"
-33911 "Always save adjustments is active"
-56232 "Save the current adjustments to the shortcut key.\nIf the shortcut key will be pressed later, adjustments will be overwritten immediately with the saved contents."
+49500 "Auto-save adjustments is active"
+5526 "Save the current adjustments to this shortcut key.\nWhen the shortcut key is pressed, the saved adjustments will be applied immediately."
 14134 "Create a shortcut to apply the current adjustments."
 13086 "Do you really want to remove the shortcut '%s'?"
 9224 "Click to set keyboard shortcut"

@@ -380,7 +380,7 @@ static void draw_osd_window(reshade::api::effect_runtime *runtime)
         else
         {
             fraction = 1.0f;
-            str = _("ready");
+            str = _("Ready");
         }
         ImGui::ProgressBar(fraction, ImVec2(ImGui::GetContentRegionAvail().x, 0), "");
         ImGui::SameLine(15);
@@ -436,13 +436,13 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
     {
         std::string show_osd_items = _("Hidden\nAlways\nWhile myset is active\nWhile myset is active (Ignore errors)\n");
         std::replace(show_osd_items.begin(), show_osd_items.end(), '\n', '\0');
-        std::string turn_on_effects_items = _("Ignore\nWhile myset is active\nWhen activate myset\n");
+        std::string turn_on_effects_items = _("Ignore\nWhile myset is active\nOn myset activation\n");
         std::replace(turn_on_effects_items.begin(), turn_on_effects_items.end(), '\n', '\0');
         modified |= ImGui::Combo(_("Show OSD"), reinterpret_cast<int *>(&ctx.config.show_osd), show_osd_items.c_str()); // Update ctx to ctx-> for consistency
         modified |= ImGui::Combo(_("Turn On Effects"), reinterpret_cast<int *>(&ctx.config.turn_on_effects), turn_on_effects_items.c_str()); // Update ctx to ctx-> for consistency
 
         char buf[4096] = "";
-        std::string playback_mode_items = _("Play sound only when first frame is captured\nPlay a sound each time a frame is captured\nPlay sound continuously while capturing frames\n");
+        std::string playback_mode_items = _("Play sound only when first frame is captured\nPlay sound each time a frame is captured\nPlay sound continuously while capturing frames\n");
         std::replace(playback_mode_items.begin(), playback_mode_items.end(), '\n', '\0');
 
         for (screenshot_myset &screenshot_myset : ctx.config.screenshot_mysets) // Update ctx to ctx-> for consistency
@@ -459,19 +459,19 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 std::filesystem::file_status file = std::filesystem::status(expanded, ec);
                 if (!expanded.has_filename() || (file.type() != std::filesystem::file_type::not_found && file.type() != std::filesystem::file_type::regular))
                 {
-                    status = _("File name is mandatory. You will get an error when saving screenshots.");
+                    status = _("A file name is required. Saving screenshots will fail without one.");
                     return;
                 }
 
                 if (ec.value() != 0x0 && ec.value() != 0x2 && ec.value() != 0x3)
-                    status = std::format(_("Check failed with %d. You will get an error when saving screenshots.\n%s"), ec.value(), format_message(ec.value(), 0).c_str());
+                    status = std::format(_("Path validation failed with error %d. Saving screenshots may fail.\n%s"), ec.value(), format_message(ec.value(), 0).c_str());
                 };
 
             ImGui::PushID(screenshot_myset.name.c_str(), screenshot_myset.name.c_str() + screenshot_myset.name.size());
 
             if (ImGui::CollapsingHeader(screenshot_myset.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
             {
-                modified |= reshade::imgui::key_input_box(_("Screenshot key"), _("When you enter this key combination, the add-on will begin saving screenshots with the following setting. To abort the capture, re-enter the screenshot key."), screenshot_myset.screenshot_key_data, runtime);
+                modified |= reshade::imgui::key_input_box(_("Screenshot key"), _("When you enter this key combination, the add-on will begin saving screenshots with the following settings. To abort the capture, re-enter the screenshot key."), screenshot_myset.screenshot_key_data, runtime);
 
                 ImGui::BeginDisabled(ctx.is_screenshot_active());
 
@@ -483,7 +483,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 }
                 ImGui::SetItemTooltip(_("Audio file that is played when taking a screenshot."));
                 modified |= ImGui::Combo(_("Playback mode"), reinterpret_cast<int *>(&screenshot_myset.playback_mode), playback_mode_items.c_str());
-                modified |= ImGui::Checkbox(_("Play default sound if not exists"), &screenshot_myset.playsound_force);
+                modified |= ImGui::Checkbox(_("Play default sound if file does not exist"), &screenshot_myset.playsound_force);
                 modified |= ImGui::Checkbox(_("Play sound as system notification"), &screenshot_myset.playsound_as_system_notification);
 
                 ImGui::EndDisabled();
@@ -568,16 +568,16 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                                             tooltip += _("Capture the frame rendered by the game only if effects are enabled.");
                                             break;
                                         case after:
-                                            tooltip += _("Capture the frame after applied the effect only if the effects are enabled.");
+                                            tooltip += _("Capture the frame after applying effects, only if effects are enabled.");
                                             break;
                                         case overlay:
-                                            tooltip += _("Capture the frame after rendered the ReShade overlay.");
+                                            tooltip += _("Capture the frame after rendering the ReShade overlay.");
                                             break;
                                         case depth:
-                                            tooltip += _("Capture the depth of the frame that was used in the game only if effects are enabled.");
+                                            tooltip += _("Capture the depth buffer used by the game, only if effects are enabled.");
                                             break;
                                         case preset:
-                                            tooltip += _("The current preset will be archived with image. This process will only be performed at the first frame.");
+                                            tooltip += _("The current preset will be archived with the image. This is only performed on the first frame.");
                                             break;
                                     }
                                     tooltip += "\n\n";
@@ -591,14 +591,14 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                                         "                      Total number of screenshots of myset\n"
                                         "                      (default: D1)\n"
                                         "  <TOTALTAKE[:format]>\n"
-                                        "                      Total number of activation\n"
+                                        "                      Total number of activations\n"
                                         "                      (default: D1)\n"
                                         "  <MYSETTAKE[:format]>\n"
-                                        "                      Total number of activation of myset\n"
+                                        "                      Total number of activations for this myset\n"
                                         "                      (default: D1)\n"
-                                        "  <INDEX[:format]>    Current number of continuous screenshot\n"
+                                        "  <INDEX[:format]>    Index of the current consecutive screenshot\n"
                                         "                      (default: D1)\n"
-                                        "  <DATE[:format]>     Timestamp of taken screenshot\n"
+                                        "  <DATE[:format]>     Timestamp of the screenshot\n"
                                         "                      (default: %%Y-%%m-%%d %%H-%%M-%%S)");
                                     ImGui::Text(tooltip.c_str(),
                                         ctx.environment.reshade_executable_path.stem().string().c_str(),
@@ -625,7 +625,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 {
                     if (ImGui::BeginTooltip())
                     {
-                        ImGui::TextUnformatted(_("Set thresholds to block taking screenshots to preserve the free disk space."));
+                        ImGui::TextUnformatted(_("Set thresholds to prevent saving screenshots in order to preserve free disk space."));
                         ImGui::EndTooltip();
                     }
                 }
@@ -678,12 +678,12 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                     {
                         if (ImGui::BeginTooltip())
                         {
-                            ImGui::TextUnformatted(_("This feature estimates the free disk space in the destination folder before saving screenshots to cancel the save operation.\n"
-                                "Note that this behavior depends on the following ranges.\n\n"
-                                "0       Disable feature\n"
-                                "1-99    Percentage of free disk space to cancel the save operation.\n"
-                                "100-    Number of free disk space (in megabytes) to cancel the save operation.\n\n"
-                                "If you want to specify a value above 100 MB, you can switch to direct input mode by 'Ctrl'+left click."));
+                            ImGui::TextUnformatted(_("This feature checks free disk space in the destination folder before saving, and cancels the save if space is insufficient.\n"
+                                "The behavior depends on the following value ranges:\n\n"
+                                "0       Disabled\n"
+                                "1-99    Cancel if free disk space falls below this percentage.\n"
+                                "100+    Cancel if free disk space falls below this many megabytes.\n\n"
+                                "To enter a value above 100 MB, hold Ctrl and click the control."));
 
                             ImGui::EndTooltip();
                         }
@@ -695,7 +695,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 ImGui::EndTabBar();
                 ImGui::Dummy(ImVec2());
 
-                if (ImGui::SliderInt(_("Repeat count"), reinterpret_cast<int *>(&screenshot_myset.repeat_count), 0, 60, screenshot_myset.repeat_count == 0 ? _("infinity") : _("%d times"), ImGuiSliderFlags_None))
+                if (ImGui::SliderInt(_("Repeat count"), reinterpret_cast<int *>(&screenshot_myset.repeat_count), 0, 60, screenshot_myset.repeat_count == 0 ? _("Infinite") : _("%d times"), ImGuiSliderFlags_None))
                 {
                     if (static_cast<int>(screenshot_myset.repeat_count) < 0)
                         screenshot_myset.repeat_count = 1;
@@ -721,7 +721,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 {
                     if (ImGui::BeginTooltip())
                     {
-                        ImGui::TextUnformatted(_("Specify the interval of frames to be save until the specified number of frames."));
+                        ImGui::TextUnformatted(_("Specify the interval (in frames) between each capture until the repeat count is reached."));
                         ImGui::EndTooltip();
                     }
                 }
@@ -736,7 +736,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 {
                     if (ImGui::BeginTooltip())
                     {
-                        ImGui::TextUnformatted(_("Specify the number of threads to compress the captured frames to specified image files."));
+                        ImGui::TextUnformatted(_("Specify the number of threads used to compress captured frames into image files."));
                         ImGui::EndTooltip();
                     }
                 }
@@ -748,7 +748,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 if (screenshot_myset.is_enable(screenshot_kind::after)) { enables += 1; depths += 4; }
                 if (screenshot_myset.is_enable(screenshot_kind::overlay)) { enables += 1; depths += 4; }
                 if (screenshot_myset.is_enable(screenshot_kind::depth)) { enables += 1; depths += 4; }
-                ImGui::Text(_("Estimate memory usage: %.3lf MiB per once (%d images)"), static_cast<double>(depths * width * height) / (1024 * 1024 * 1), enables);
+                ImGui::Text(_("Estimated memory usage: %.3lf MiB per capture (%d images)"), static_cast<double>(depths * width * height) / (1024 * 1024 * 1), enables);
 
                 int file_write_buffer_size = screenshot_myset.file_write_buffer_size / (1024 * 1);
                 if (ImGui::SliderInt(_("File write buffer size"), &file_write_buffer_size, 4, 1024 * 1, "%d KiB"))
@@ -768,7 +768,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                 {
                     if (ImGui::BeginTooltip())
                     {
-                        ImGui::TextUnformatted(_("Select the image file format.\nHowever, the depth is always saved in TIFF format regardless of this selection."));
+                        ImGui::TextUnformatted(_("Select the image file format.\nNote: Depth is always saved in TIFF format regardless of this selection."));
                         ImGui::EndTooltip();
                     }
                 }
