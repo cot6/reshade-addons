@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-FileCopyrightText: Copyright (C) 2014 Patrick Mours
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
@@ -51,7 +51,7 @@ bool reshade::imgui::key_input_box(const char *name, const char *hint, unsigned 
         {
             std::string tooltip = hint;
             tooltip.append(2, '\n');
-            tooltip += _("Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut.");
+            tooltip += _("Click in the field and press any key combination to set the shortcut, or press Backspace to clear it.");
             ImGui::TextUnformatted(tooltip.c_str(), tooltip.c_str() + tooltip.size());
             ImGui::EndTooltip();
         }

@@ -18,7 +18,7 @@ BEGIN
 14134 "Create a shortcut to apply the current adjustments."
 13086 "Do you really want to remove the shortcut '%s'?"
 9224 "Click to set keyboard shortcut"
-38313 "Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut."
+39566 "Click in the field and press any key combination to set the shortcut, or press Backspace to clear it."
 42682 "Yes"
 35957 "No"
 

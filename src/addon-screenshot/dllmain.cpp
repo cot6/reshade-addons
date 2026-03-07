@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-FileCopyrightText: 2018 seri14
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -710,7 +710,7 @@ static void draw_setting_window(reshade::api::effect_runtime *runtime)
                         ImGui::EndTooltip();
                     }
                 }
-                if (ImGui::SliderInt(_("Repeat interval"), reinterpret_cast<int *>(&screenshot_myset.repeat_interval), 1, 60, screenshot_myset.repeat_interval > 1 ? _("%d frames") : _("every frame"), ImGuiSliderFlags_None))
+                if (ImGui::SliderInt(_("Repeat interval"), reinterpret_cast<int *>(&screenshot_myset.repeat_interval), 1, 60, screenshot_myset.repeat_interval > 1 ? _("every %d frames") : _("every frame"), ImGuiSliderFlags_None))
                 {
                     if (static_cast<int>(screenshot_myset.repeat_interval) < 1)
                         screenshot_myset.repeat_interval = 1;

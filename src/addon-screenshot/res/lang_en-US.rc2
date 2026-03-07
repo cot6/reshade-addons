@@ -65,7 +65,7 @@ BEGIN
 32438 "%d times"
 16136 "Specify the number of frames to save after pressing the screenshot shortcut key. To abort capture, re-enter the screenshot key."
 376 "Repeat interval"
-53589 "%d frames"
+26167 "every %d frames"
 58461 "every frame"
 38964 "Specify the interval (in frames) between each capture until the repeat count is reached."
 25325 "Worker threads"
@@ -104,7 +104,7 @@ BEGIN
 50522 "Compression Algorithm###LibtiffCompressionAlgorithm"
 20932 "Add set:"
 9224 "Click to set keyboard shortcut"
-38313 "Click in the field and press any key to change the shortcut to that key or press backspace to remove the shortcut."
+39566 "Click in the field and press any key combination to set the shortcut, or press Backspace to clear it."
 42682 "Yes"
 35957 "No"
 
