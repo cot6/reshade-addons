@@ -8,7 +8,7 @@
 
 #include "autoreload.hpp"
 
-void filesystem_update_listener::handleFileAction(efsw::WatchID, const std::string &, const std::string &filename, efsw::Action, std::string)
+void filesystem_update_listener::handleFileAction(efsw::WatchID, const std::string &, const std::string &filename, efsw::Action, const std::string &)
 {
     const std::shared_lock<std::shared_mutex> lock(_read_mutex);
 
