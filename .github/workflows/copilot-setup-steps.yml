@@ -16,14 +16,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Intentional for Windows Copilot setup.
-      # Copilot's integrated firewall is not compatible with Windows runners.
-      - name: Disable Windows Firewall
-        shell: pwsh
-        run: |
-          Set-NetFirewallProfile `
-            -Profile Domain,Public,Private `
-            -Enabled False
-
       - name: Checkout repository
         uses: actions/checkout@v4
+  
