@@ -4,7 +4,7 @@
 #pragma once
 
 #include <cstdint>
-#include <shared_mutex>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -16,6 +16,6 @@ public:
     void handleFileAction(efsw::WatchID watch_id, const std::string &dir, const std::string &filename, efsw::Action action, const std::string &old_filename) override;
     size_t read(std::vector<std::string> &changes);
 private:
-    std::shared_mutex _read_mutex;
+    std::mutex _read_mutex;
     std::vector<std::string> _changes;
 };
