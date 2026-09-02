@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <mutex>
 #include <shared_mutex>
 #include <vector>
 
@@ -10,14 +11,14 @@
 
 void filesystem_update_listener::handleFileAction(efsw::WatchID, const std::string &, const std::string &filename, efsw::Action, const std::string &)
 {
-    const std::shared_lock<std::shared_mutex> lock(_read_mutex);
+    const std::unique_lock<std::shared_mutex> lock(_read_mutex);
 
     if (std::find_if(_changes.cbegin(), _changes.cend(), [&filename](const std::string &item) { return item == filename; }) == _changes.end())
         _changes.emplace_back(filename);
 }
 size_t filesystem_update_listener::read(std::vector<std::string> &changes)
 {
-    const std::shared_lock<std::shared_mutex> lock(_read_mutex);
+    const std::unique_lock<std::shared_mutex> lock(_read_mutex);
     const size_t size = _changes.size();
 
     if (size != 0)
